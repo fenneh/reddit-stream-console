@@ -1,0 +1,46 @@
+{
+    "menu_items": [
+        {
+            "title": "/r/soccer match-threads",
+            "type": "soccer_match",
+            "subreddit": "soccer",
+            "flair": ":Match_thread:Match Thread",
+            "max_age_hours": 6,
+            "limit": 50
+        },
+        {
+            "title": "/r/soccer post-match-threads",
+            "type": "soccer_post_match",
+            "subreddit": "soccer",
+            "flair": "Post Match Thread",
+            "max_age_hours": 12,
+            "limit": 50
+        },
+        {
+            "title": "/r/fantasypl",
+            "type": "fpl_rant",
+            "subreddit": "FantasyPL",
+            "flair": "GW Rant & Info",
+            "max_age_hours": 168,
+            "limit": 10
+        },
+        {
+            "title": "/r/nfl game-threads",
+            "type": "nfl_game",
+            "subreddit": "nfl",
+            "flair": "Game Thread",
+            "max_age_hours": 12,
+            "limit": 100,
+            "title_must_not_contain": ["Post Game Thread", "Post-Game Thread"]
+        },
+        {
+            "title": "/r/nfl post-game-threads",
+            "type": "nfl_post_game",
+            "subreddit": "nfl",
+            "flair": "Game Thread",
+            "max_age_hours": 12,
+            "limit": 100,
+            "title_must_contain": ["Post Game Thread", "Post-Game Thread"]
+        }
+    ]
+}
