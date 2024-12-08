@@ -4,40 +4,45 @@
             "title": "/r/soccer match-threads",
             "type": "soccer_match",
             "subreddit": "soccer",
-            "flair": ":Match_thread:Match Thread",
+            "flair": ["Match Thread", "match thread"],
             "max_age_hours": 6,
-            "limit": 50
+            "limit": 50,
+            "title_must_contain": ["Match Thread"],
+            "title_must_not_contain": ["Post Match Thread", "Post-Match Thread"]
         },
         {
             "title": "/r/soccer post-match-threads",
             "type": "soccer_post_match",
             "subreddit": "soccer",
-            "flair": "Post Match Thread",
+            "flair": ["Post Match Thread", "post match thread"],
             "max_age_hours": 12,
-            "limit": 50
+            "limit": 50,
+            "title_must_contain": ["Post Match Thread"]
         },
         {
             "title": "/r/fantasypl",
             "type": "fpl_rant",
             "subreddit": "FantasyPL",
-            "flair": "GW Rant & Info",
+            "flair": ["GW Rant & Info", "gw rant & info"],
             "max_age_hours": 168,
-            "limit": 10
+            "limit": 50,
+            "title_must_contain": ["Rant"]
         },
         {
             "title": "/r/nfl game-threads",
             "type": "nfl_game",
             "subreddit": "nfl",
-            "flair": "Game Thread",
+            "flair": ["Game Thread", "game thread"],
             "max_age_hours": 12,
             "limit": 100,
+            "title_must_contain": ["Game Thread"],
             "title_must_not_contain": ["Post Game Thread", "Post-Game Thread"]
         },
         {
             "title": "/r/nfl post-game-threads",
             "type": "nfl_post_game",
             "subreddit": "nfl",
-            "flair": "Game Thread",
+            "flair": ["Post Game Thread", "post game thread", "Post-Game Thread", "post-game thread"],
             "max_age_hours": 12,
             "limit": 100,
             "title_must_contain": ["Post Game Thread", "Post-Game Thread"]
