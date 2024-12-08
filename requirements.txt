@@ -1,4 +1,4 @@
 aiohttp==3.9.1
 asyncpraw==7.8.0
 python-dotenv==1.0.0
-windows-curses==2.4.0
+textual==0.47.1
