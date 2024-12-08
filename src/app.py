@@ -24,7 +24,7 @@ logging.basicConfig(
 )
 
 class RedditStreamApp(App):
-    """A Textual app to display Reddit comments in real-time."""
+    """A terminal app for streaming Reddit comments."""
     
     TITLE = "Reddit Stream Console"
     BINDINGS = [
@@ -201,6 +201,10 @@ class RedditStreamApp(App):
         keys_text = " ".join(f"[{key}] {action}" for key, action, _ in self.BINDINGS)
         footer.markup = keys_text
     
+    def update_header(self, title: str = None):
+        """Update the app title."""
+        self.title = title if title else self.TITLE
+    
     async def on_mount(self) -> None:
         """Start the refresh timer when app is mounted."""
         # Initialize ThreadFinder
@@ -267,6 +271,7 @@ class RedditStreamApp(App):
                     comments_container = self.query_one("#comments-container")
                     comments_container.add_class("show")
                     self.current_thread = thread
+                    self.update_header(thread.title)  # Update header with thread title
                     await self.refresh_comments()
             
             elif button_id == "back-to-menu":
@@ -290,10 +295,11 @@ class RedditStreamApp(App):
                     for screen in list(menu_screens)[1:]:  # Keep the first one
                         screen.remove()
                 
-                # Show menu
+                # Show menu and reset header
                 self.menu_screen.styles.display = "block"
                 self.showing_menu = True
                 self.menu_screen.focus_first_button()
+                self.update_header()  # Reset header to default title
         
         except Exception as e:
             logging.error(f"Unhandled error in button press handler: {str(e)}")
