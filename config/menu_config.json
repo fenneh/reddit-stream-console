@@ -42,10 +42,10 @@
             "title": "/r/nfl post-game-threads",
             "type": "nfl_post_game",
             "subreddit": "nfl",
-            "flair": ["Post Game Thread", "post game thread", "Post-Game Thread", "post-game thread"],
+            "flair": ["Game Thread", "game thread"],
             "max_age_hours": 12,
             "limit": 100,
-            "title_must_contain": ["Post Game Thread", "Post-Game Thread"]
+            "title_must_contain": ["Post Game Thread"]
         }
     ]
 }
