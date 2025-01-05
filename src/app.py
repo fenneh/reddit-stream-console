@@ -9,6 +9,7 @@ import logging
 from .components.menu_screen import MenuScreen
 from .components.thread_list import ThreadListScreen
 from .components.comment_viewer import CommentContainer, CommentWidget
+from .components.url_input_screen import UrlInputScreen
 from .services.reddit_service import RedditService
 from .services.thread_finder import ThreadFinder
 from .utils.config import load_menu_config
@@ -37,6 +38,63 @@ class RedditStreamApp(App):
     CSS = """
     Screen {
         background: #1a1a1a;
+    }
+
+    .url-input-screen {
+        background: #1a1a1a;
+        align: center middle;
+        width: 100%;
+        height: 100%;
+    }
+
+    .url-input-label {
+        color: #FFE6A9;
+        text-align: center;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    .url-input-field {
+        background: #2a2a2a;
+        color: #FFE6A9;
+        border: solid #659287;
+        width: 90%;
+        margin: 1 0;
+        padding: 0 1;
+    }
+
+    .url-input-spacer {
+        height: 1;
+    }
+
+    .url-input-buttons {
+        width: 90%;
+        height: auto;
+        align: center middle;
+        margin-top: 1;
+    }
+
+    .url-input-buttons Button {
+        min-width: 20;
+    }
+
+    .url-submit-button, .url-cancel-button {
+        width: 20;
+        margin: 0 1;
+        background: #659287;
+        color: #FFE6A9;
+        border: none;
+    }
+
+    .url-submit-button:hover, .url-cancel-button:hover {
+        background: #DEAA79;
+        color: #1a1a1a;
+    }
+
+    .url-submit-button:focus, .url-cancel-button:focus {
+        background: #DEAA79;
+        color: #1a1a1a;
+        text-style: bold;
     }
 
     Header {
@@ -225,6 +283,17 @@ class RedditStreamApp(App):
             button_id = event.button.id
             if button_id and button_id.startswith("menu-"):
                 thread_type = button_id[5:]  # Remove "menu-" prefix
+                
+                # Handle URL input
+                if thread_type == "url_input":
+                    # Hide menu screen
+                    self.menu_screen.styles.display = "none"
+                    self.showing_menu = False
+                    
+                    # Show URL input screen
+                    url_input = UrlInputScreen()
+                    await self.mount(url_input)
+                    return
                 menu_item = next((item for item in self.menu_config if item["type"] == thread_type), None)
                 if menu_item:
                     # Hide menu screen
@@ -374,6 +443,39 @@ class RedditStreamApp(App):
         container.clear_user_scroll()
         await container.scroll_to_bottom()
     
+    async def on_url_input_screen_url_submitted(self, message: UrlInputScreen.UrlSubmitted) -> None:
+        """Handle URL submission from the URL input screen."""
+        try:
+            # Remove URL input screen
+            url_input = self.query_one(UrlInputScreen)
+            url_input.remove()
+            
+            # Load thread from URL
+            self.notify("Loading thread...")
+            thread = await self.thread_finder.get_thread_from_url(message.url)
+            
+            if thread:
+                # Show comments container and selected thread
+                comments_container = self.query_one("#comments-container")
+                comments_container.add_class("show")
+                self.current_thread = thread
+                self.update_header(thread.title)
+                await self.refresh_comments()
+            else:
+                self.notify("Invalid Reddit URL", severity="error")
+                # Show menu again
+                self.menu_screen.styles.display = "block"
+                self.showing_menu = True
+                self.menu_screen.focus_first_button()
+                
+        except Exception as e:
+            logging.error(f"Error loading URL: {str(e)}")
+            self.notify(f"Error loading URL: {str(e)}", severity="error")
+            # Show menu again on error
+            self.menu_screen.styles.display = "block"
+            self.showing_menu = True
+            self.menu_screen.focus_first_button()
+
     async def on_unmount(self) -> None:
         """Clean up when app is unmounted."""
         if self.refresh_timer:

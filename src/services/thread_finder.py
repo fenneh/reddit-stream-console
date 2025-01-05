@@ -100,6 +100,50 @@ class ThreadFinder:
             logging.error(f"Error finding threads: {str(e)}")
             return []
 
+    async def get_thread_from_url(self, url: str) -> Thread:
+        """Get a thread from a Reddit URL."""
+        try:
+            # Clean up URL to get permalink
+            # Handle both full URLs and relative permalinks
+            if url.startswith('http'):
+                # Handle various Reddit domains
+                for domain in ['reddit.com', 'old.reddit.com', 'sh.reddit.com']:
+                    if domain in url:
+                        permalink = url.split(domain)[-1]
+                        break
+                else:
+                    permalink = url
+            else:
+                permalink = url
+            
+            # Remove trailing slash and .json if present
+            permalink = permalink.rstrip('/').rstrip('.json')
+            
+            # Remove any query parameters
+            if '?' in permalink:
+                permalink = permalink.split('?')[0]
+            
+            # Extract thread ID from permalink
+            parts = [p for p in permalink.split('/') if p]  # Split and remove empty parts
+            if len(parts) >= 4 and parts[0] == 'r':
+                thread_id = parts[3]  # Get ID from /r/subreddit/comments/ID/...
+            else:
+                raise ValueError("Invalid Reddit URL format")
+            
+            # Fetch submission to get title
+            submission = await self.reddit.submission(id=thread_id)
+            
+            return Thread(
+                id=thread_id,
+                title=submission.title,
+                permalink=permalink,
+                type='url_input'
+            )
+            
+        except Exception as e:
+            logging.error(f"Error getting thread from URL: {str(e)}")
+            return None
+
     async def close(self):
         """Close the Reddit client session."""
         await self.reddit.close()
