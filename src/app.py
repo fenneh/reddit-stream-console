@@ -18,11 +18,14 @@ from .utils.config import load_menu_config
 load_dotenv()
 
 # Add logging configuration after load_dotenv()
-logging.basicConfig(
-    filename='reddit_stream_debug.log',
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+from .utils.config import is_debug_logging_enabled
+
+if is_debug_logging_enabled():
+    logging.basicConfig(
+        filename='reddit_stream_debug.log',
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
 
 class RedditStreamApp(App):
     """A terminal app for streaming Reddit comments."""
