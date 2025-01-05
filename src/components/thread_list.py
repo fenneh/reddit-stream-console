@@ -35,7 +35,8 @@ class ThreadListScreen(Vertical):
                     yield button
                 
                 yield Static("", classes="spacer")
-                yield Button("← Back to Menu", id="back-to-menu", classes="back-button")
+                with Center():
+                    yield Button("← Back to Menu", id="back-to-menu", classes="back-button")
                 
                 # Focus first button if this is the first one
                 if len(self.buttons) == len(self.threads):
