@@ -5,15 +5,7 @@ from textual.binding import Binding
 
 class ThreadListScreen(Vertical):
     """Screen showing available threads for a selected type."""
-    DEFAULT_CSS = """
-    MenuScreen {
-        border: round #404040;
-        border: solid #659287;
-        padding: 1;
-    }
-    
-    """
-    
+
     BINDINGS = [
         Binding("up", "focus_previous", "Previous", show=False),
         Binding("down", "focus_next", "Next", show=False),
