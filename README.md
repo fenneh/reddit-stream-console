@@ -1,82 +1,112 @@
-# Reddit Stream Console
+# Reddit Stream Console 🎭
 
-A terminal-based Reddit thread viewer built with [Textual](https://github.com/Textualize/textual). Watch live comments from Reddit threads in your terminal with a beautiful TUI interface.
+Because sometimes you want to read Reddit like it's 1989.
 
-![Reddit Stream Console Screenshot](docs/screenshot.png)
+![Screenshot](docs/screenshot.png)
+
+## What is this?
+
+A TUI (Text User Interface) application for streaming Reddit comments in real-time. Perfect for those moments when you want to:
+- Pretend you're a hacker while reading about cats
+- Follow live sports discussions without explaining to your boss why Reddit is open
+- Experience the joy of ASCII art in comment threads
+- Actually get work done (results may vary)
+
+Inspired by [reddit-stream.com](https://reddit-stream.com), but for those times when you want your Reddit in glorious ASCII. Think of it as reddit-stream's terminal-dwelling cousin who took a different path in life.
 
 ## Features
 
-- Live comment streaming from Reddit threads
-- Support for multiple thread types:
-  - Soccer match threads
-  - Soccer post-match threads
-  - Fantasy Premier League rant threads
-  - NFL game threads
-  - NFL post-game threads
-- Beautiful terminal UI with:
-  - Easy navigation with keyboard or mouse
-  - Comment threading and indentation
-  - Color-coded usernames, scores, and timestamps
-  - Auto-scrolling with new comments
-  - Configurable refresh rate
+- 🔄 Real-time comment streaming
+- 🎨 Beautiful TUI interface (as beautiful as ASCII can be)
+- 🔍 Live comment filtering (for when you're looking for that one comment that agrees with you)
+- 📜 Auto-scrolling with manual override (because sometimes you need to pause the madness)
+- 🎮 Keyboard-driven interface (mouse users, we still love you)
+- 🌈 Color-coded comments (because monochrome is so 1988)
 
-## Installation
+## Quick Start
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/reddit-stream-console.git
-cd reddit-stream-console
-```
+### The "I Read Documentation" Way
 
-2. Create a virtual environment and install dependencies:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-pip install -r requirements.txt
-```
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/yourusername/reddit-stream-console.git
+   cd reddit-stream-console
+   ```
 
-3. Set up your Reddit API credentials:
-   - Create a Reddit app at https://www.reddit.com/prefs/apps/
-   - Create a `.env` file with your credentials:
-```env
-REDDIT_CLIENT_ID=your_client_id
-REDDIT_CLIENT_SECRET=your_client_secret
-REDDIT_USER_AGENT=your_user_agent
-```
+2. Run the build script:
 
-## Usage
+   **On Linux/macOS:**
+   ```bash
+   chmod +x build.sh
+   ./build.sh
+   ```
 
-Run the app:
-```bash
-# Make sure your virtual environment is activated
-python main.py
-```
+   **On Windows (PowerShell):**
+   ```powershell
+   .\build.ps1
+   ```
 
-Navigation:
-- Use arrow keys or mouse to navigate menus
-- Enter to select
-- Escape to go back
-- Q to quit
-- R to manually refresh comments
-- End to scroll to bottom
+3. Edit `.env` with your Reddit API credentials (get them at https://www.reddit.com/prefs/apps)
+
+4. Run the app:
+   ```bash
+   # Linux/macOS
+   source venv/bin/activate
+   python main.py
+
+   # Windows (PowerShell)
+   .\venv\Scripts\Activate.ps1
+   python main.py
+   ```
+
+### The "I Love Containers" Way
+
+1. Build the Docker image:
+   ```bash
+   docker build -t reddit-stream-console .
+   ```
+
+2. Run it:
+   ```bash
+   docker run -it --env-file .env reddit-stream-console
+   ```
+
+## Controls
+
+- `/` - Filter comments (because ctrl+f was too mainstream)
+- `r` - Refresh comments manually (for the impatient)
+- `end` - Scroll to bottom (in case you're lost in the void)
+- `escape` - Show menu/exit filter (escape reality)
+- `backspace` - Go back (time travel not guaranteed)
+- `q` - Quit (when you've had enough internet for one day)
 
 ## Configuration
 
-Thread types and search criteria can be configured in `config/menu_config.json`. Each thread type can specify:
-- Subreddit to search in
-- Required title keywords
-- Required flair
-- Maximum thread age
-- Number of threads to fetch
+Copy `.env.example` to `.env` and fill in your Reddit API credentials. If you don't know how to get these:
+
+1. Go to https://www.reddit.com/prefs/apps
+2. Create a new application
+3. Select "script"
+4. Fill in the required fields (redirect URI can be http://localhost)
+5. Get your client ID and secret
+6. Question your life choices that led you to reading Reddit in a terminal
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Found a bug? Want to add a feature? Have a existential crisis about terminal-based social media? Feel free to:
+
+1. Open an issue
+2. Submit a PR
+3. Fork and create your own version (we won't judge)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT - Because sharing is caring, and lawyers are expensive.
+
+## Acknowledgments
+
+- [reddit-stream.com](https://reddit-stream.com) for pioneering the idea of live Reddit comment streaming
+- The Textual framework, for making TUI development less painful
+- Reddit's API, for being relatively stable
+- Coffee, for obvious reasons
+- You, for reading this far (seriously, impressive commitment)
