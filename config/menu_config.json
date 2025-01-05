@@ -1,11 +1,6 @@
 {
     "menu_items": [
         {
-            "title": "Enter Reddit URL",
-            "type": "url_input",
-            "description": "View any Reddit thread by URL"
-        },
-        {
             "title": "/r/soccer match-threads",
             "type": "soccer_match",
             "subreddit": "soccer",
@@ -51,6 +46,15 @@
             "max_age_hours": 12,
             "limit": 100,
             "title_must_contain": ["Post Game Thread"]
+        },
+        {
+            "type": "separator",
+            "title": " "
+        },
+        {
+            "title": "Enter Reddit URL",
+            "type": "url_input",
+            "description": "View any Reddit thread by URL"
         }
     ]
 }

@@ -25,9 +25,10 @@ class MenuScreen(Vertical):
         """Load menu items from config."""
         self.buttons = []  # Clear existing buttons
         for item in menu_config:
-            button = Button(item["title"], id=f"menu-{item['type']}", classes="menu-button")
-            self.buttons.append(button)
-            await self.mount(button)
+            if "title" in item:  # Only create button if item has a title
+                button = Button(item["title"], id=f"menu-{item['type']}", classes="menu-button")
+                self.buttons.append(button)
+                await self.mount(button)
         
         # Focus first button if any exist
         if self.buttons:
