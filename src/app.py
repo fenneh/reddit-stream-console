@@ -231,6 +231,18 @@ class RedditStreamApp(App):
         background: #8B0000;
         color: #FFE6A9;
     }
+
+    MenuScreen {
+        border: round #404040;
+        border: solid #659287;
+        padding: 1;
+    }
+
+    ThreadListScreen {
+        border: round #404040;
+        border: solid #659287;
+        padding: 1;
+    }
     """
     
     def __init__(self):
