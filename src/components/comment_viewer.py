@@ -1,6 +1,7 @@
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer
-from textual.widgets import Static, Label
+from textual.widgets import Static, Label, Input
+from textual.binding import Binding
 from datetime import datetime, timezone
 import logging
 from typing import Dict, Set
@@ -27,13 +28,72 @@ class CommentWidget(Static):
         yield Label(f"{indent}{self.body}", classes="comment-body")
 
 class CommentContainer(ScrollableContainer):
-    """A container for comments that supports auto-scrolling."""
+    """A container for comments that supports auto-scrolling and filtering."""
+
+    BINDINGS = [
+        Binding("/", "toggle_filter", "Filter Comments"),
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.user_scrolled = False
         self.comment_ids = set()  # Track existing comment IDs
         self.comment_widgets = {}  # Map comment IDs to widgets
+        self.filter_text = ""
+        self.filter_active = False
+        self.filter_input = Input(placeholder="Filter comments... hit enter or escape to exit if blank", classes="filter-input")
+        self.filter_input.display = False
+    
+    def compose(self) -> ComposeResult:
+        """Compose the container with a filter input."""
+        yield self.filter_input
+
+    def hide_filter(self) -> None:
+        """Hide the filter input and clear filter."""
+        self.filter_active = False
+        self.filter_input.display = False
+        self.filter_text = ""
+        self._apply_filter()
+
+    def action_toggle_filter(self) -> None:
+        """Toggle the filter input visibility."""
+        self.filter_active = not self.filter_active
+        self.filter_input.display = self.filter_active
+        if self.filter_active:
+            self.filter_input.focus()
+        else:
+            self.filter_text = ""
+            self._apply_filter()
+
+    async def on_key(self, event) -> None:
+        """Handle key events."""
+        if event.key == "escape" and self.filter_active:
+            self.hide_filter()
+            event.prevent_default()
+            event.stop()
+        elif event.key == "enter" and self.filter_active and not self.filter_text.strip():
+            self.hide_filter()
+            event.prevent_default()
+            event.stop()
+
+    def _matches_filter(self, comment_widget: CommentWidget) -> bool:
+        """Check if a comment matches the current filter."""
+        if not self.filter_text:
+            return True
+        filter_lower = self.filter_text.lower()
+        return (filter_lower in comment_widget.author.lower() or 
+                filter_lower in comment_widget.body.lower())
+
+    def _apply_filter(self) -> None:
+        """Apply the current filter to all comments."""
+        for widget in self.comment_widgets.values():
+            widget.display = self._matches_filter(widget)
+
+    async def on_input_changed(self, event: Input.Changed) -> None:
+        """Handle changes to the filter input."""
+        if event.input == self.filter_input:
+            self.filter_text = event.value
+            self._apply_filter()
     
     async def _on_scroll_up(self) -> None:
         """Handle scroll up event."""
@@ -70,6 +130,7 @@ class CommentContainer(ScrollableContainer):
                         depth=comment["depth"],
                         comment_id=comment_id
                     )
+                    widget.display = self._matches_filter(widget)
                     new_comments.append(widget)
                     self.comment_ids.add(comment_id)
                     self.comment_widgets[comment_id] = widget

@@ -34,8 +34,9 @@ class RedditStreamApp(App):
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("r", "refresh", "Refresh"),
-        ("escape", "show_menu", "Menu"),
+        ("escape", "show_menu", "Menu/Exit Filter"),
         ("end", "scroll_bottom", "Scroll to Bottom"),
+        ("/", "toggle_filter", "Filter Comments"),
     ]
     
     CSS = """
@@ -184,6 +185,22 @@ class RedditStreamApp(App):
         scrollbar-background-active: #1a1a1a;
         scrollbar-background-hover: #1a1a1a;
         padding: 0 1;  /* Add horizontal padding */
+    }
+
+    CommentContainer .filter-input {
+        dock: bottom;
+        width: 100%;
+        margin: 0;
+        padding: 0 1;
+        background: #2a2a2a;
+        color: #FFE6A9;
+        border: solid #659287;
+        height: 3;
+        display: none;
+    }
+
+    CommentContainer .filter-input:focus {
+        border: double #DEAA79;
     }
 
     CommentContainer.show {
@@ -457,6 +474,12 @@ class RedditStreamApp(App):
         container = self.query_one(CommentContainer)
         container.clear_user_scroll()
         await container.scroll_to_bottom()
+    
+    async def action_toggle_filter(self) -> None:
+        """Toggle comment filter when / is pressed."""
+        if not self.showing_menu:
+            container = self.query_one(CommentContainer)
+            container.action_toggle_filter()
     
     async def on_url_input_screen_url_submitted(self, message: UrlInputScreen.UrlSubmitted) -> None:
         """Handle URL submission from the URL input screen."""
