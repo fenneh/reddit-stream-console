@@ -5,6 +5,14 @@ from textual.binding import Binding
 
 class ThreadListScreen(Vertical):
     """Screen showing available threads for a selected type."""
+    DEFAULT_CSS = """
+    MenuScreen {
+        border: round #404040;
+        border: solid #659287;
+        padding: 1;
+    }
+    
+    """
     
     BINDINGS = [
         Binding("up", "focus_previous", "Previous", show=False),
@@ -23,7 +31,6 @@ class ThreadListScreen(Vertical):
         """Create child widgets for the thread list."""
         with Center():
             with Vertical(classes="thread-list-container"):
-                yield Label("Select a thread to view:", classes="subtitle")
                 yield Static("", classes="spacer")
                 
                 for thread in self.threads:
