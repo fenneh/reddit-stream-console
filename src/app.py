@@ -34,9 +34,10 @@ class RedditStreamApp(App):
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("r", "refresh", "Refresh"),
-        ("escape", "show_menu", "Menu/Exit Filter"),
+        ("escape", "show_menu", "Menu"),
         ("end", "scroll_bottom", "Scroll to Bottom"),
         ("/", "toggle_filter", "Filter Comments"),
+        ("backspace", "go_back", "Back"),
     ]
     
     CSS = """
@@ -521,3 +522,48 @@ class RedditStreamApp(App):
         
         if self.thread_finder:
             await self.thread_finder.close()
+
+    async def action_go_back(self) -> None:
+        """Handle backspace key to go back to previous screen."""
+        if self.showing_menu:
+            return  # Already at menu, nothing to do
+            
+        # If we're in the filter input, don't handle backspace
+        container = self.query_one(CommentContainer)
+        if container.filter_active:
+            return
+
+        # If we're viewing comments, go back to thread list or menu
+        if self.current_thread:
+            try:
+                comments_container = self.query_one("#comments-container")
+                comments_container.remove_class("show")
+                self.current_thread = None
+                
+                # If we came from a thread list, show it again
+                if self.current_threads:
+                    thread_list = ThreadListScreen(self.menu_config[0]["title"], self.current_threads)
+                    await self.mount(thread_list)
+                else:
+                    # Otherwise go back to menu
+                    self.menu_screen.styles.display = "block"
+                    self.showing_menu = True
+                    self.menu_screen.focus_first_button()
+                return
+            except NoMatches:
+                pass
+
+        # If we're in thread list, go back to menu
+        try:
+            thread_lists = self.query(ThreadListScreen)
+            for thread_list in thread_lists:
+                thread_list.remove()
+            self.menu_screen.styles.display = "block"
+            self.showing_menu = True
+            self.menu_screen.focus_first_button()
+        except NoMatches:
+            pass
+
+        # Reset header to default when going back to menu
+        if self.showing_menu:
+            self.update_header()
