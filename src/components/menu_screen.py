@@ -17,10 +17,6 @@ class MenuScreen(Vertical):
         self.buttons = []
         self.current_focus = -1
 
-    def compose(self) -> ComposeResult:
-        """Create child widgets for the menu."""
-        yield Label("Select a thread type:", classes="menu-subtitle")
-
     async def load_menu_items(self, menu_config):
         """Load menu items from config."""
         self.buttons = []  # Clear existing buttons
