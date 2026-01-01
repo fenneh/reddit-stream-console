@@ -1,4 +1,4 @@
-# Reddit Stream Console 🎭
+# reddit-stream-console
 
 Because sometimes you want to read Reddit like it's 1989.
 
