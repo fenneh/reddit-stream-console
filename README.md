@@ -20,18 +20,26 @@ cd reddit-stream-console
 ./build.sh  # or build.ps1 on Windows
 ```
 
-Edit `.env` with your Reddit API credentials from https://www.reddit.com/prefs/apps
+Run the binary:
 
 ```bash
-source venv/bin/activate
-python main.py
+./bin/reddit-stream-console
 ```
+
+No Reddit API credentials are required. Optional: set `REDDIT_USER_AGENT` in `.env` or your shell for better API hygiene.
 
 ## Docker
 
 ```bash
 docker build -t reddit-stream-console .
 docker run -it --env-file .env reddit-stream-console
+```
+
+## Windows EXE
+
+```powershell
+.\build.ps1
+.\bin\reddit-stream-console.exe
 ```
 
 ## Controls

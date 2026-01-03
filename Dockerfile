@@ -1,21 +1,19 @@
-FROM python:3.11-slim
+FROM golang:1.22 AS builder
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+COPY go.mod ./
+RUN go mod download
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the application
 COPY . .
+RUN go build -o /app/bin/reddit-stream-console ./cmd/reddit-stream-console
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
+FROM debian:bookworm-slim
 
-# Run the application
-CMD ["python", "main.py"] 
+WORKDIR /app
+
+COPY --from=builder /app/bin/reddit-stream-console /app/reddit-stream-console
+COPY config ./config
+COPY .env.example ./
+
+CMD [\"./reddit-stream-console\"]
