@@ -33,11 +33,12 @@ var (
 	menuTitle        = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	menuItem         = lipgloss.NewStyle().Foreground(lipgloss.Color("151"))
 	menuSelected     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
-	panelBorder      = lipgloss.Border{Top: "-", Bottom: "-", Left: "|", Right: "|", TopLeft: "+", TopRight: "+", BottomLeft: "+", BottomRight: "+"}
-	panelStyle       = lipgloss.NewStyle().Border(panelBorder).BorderForeground(lipgloss.Color("240")).Padding(1, 2)
 	commentHeader    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
 	commentBodyStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	commentTreeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	commentAuthor    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229"))
+	commentScore     = lipgloss.NewStyle().Foreground(lipgloss.Color("151"))
+	commentTime      = lipgloss.NewStyle().Foreground(lipgloss.Color("110"))
 )
 
 type Model struct {
@@ -77,6 +78,7 @@ func NewModel(menuItems []config.MenuItem, client *reddit.Client) Model {
 	menuList := list.New(menuItemsToItems(menuItems), menuDelegate, 0, 0)
 	menuList.Title = ""
 	menuList.Styles.Title = menuTitle
+	menuList.SetShowPagination(false)
 	menuList.SetShowHelp(false)
 	menuList.SetShowStatusBar(false)
 	menuList.SetFilteringEnabled(false)
@@ -89,6 +91,7 @@ func NewModel(menuItems []config.MenuItem, client *reddit.Client) Model {
 	threadList := list.New([]list.Item{}, threadDelegate, 0, 0)
 	threadList.Title = ""
 	threadList.Styles.Title = menuTitle
+	threadList.SetShowPagination(false)
 	threadList.SetShowHelp(false)
 	threadList.SetShowStatusBar(false)
 	threadList.SetFilteringEnabled(false)
@@ -253,18 +256,18 @@ func (m Model) View() string {
 
 	switch m.mode {
 	case modeMenu:
-		body = m.renderPanel(m.menuView())
+		body = m.menuView()
 	case modeThreadList:
-		body = m.renderPanel(m.threadListView())
+		body = m.threadListView()
 	case modeURLInput:
 		content := fmt.Sprintf("Enter Reddit URL\n\n%s\n\n[enter] submit  [esc] cancel", m.urlInput.View())
-		body = m.renderPanel(content)
+		body = content
 	case modeComments:
 		content := m.viewport.View()
 		if m.filterActive {
 			content = content + "\n" + m.filterInput.View()
 		}
-		body = m.renderPanel(content)
+		body = content
 	}
 
 	footer := lipgloss.NewStyle().Width(m.width).Padding(0, 1).Render(m.footerView())
@@ -435,22 +438,13 @@ func (m *Model) resize() {
 	if m.panelHeight < 0 {
 		m.panelHeight = 0
 	}
-
-	maxWidth := 96
-	if m.mode == modeComments {
-		maxWidth = m.width
-	}
 	m.panelWidth = m.width
-	if m.panelWidth > maxWidth {
-		m.panelWidth = maxWidth
-	}
 	if m.panelWidth < 0 {
 		m.panelWidth = 0
 	}
 
-	frameWidth, frameHeight := panelFrameSize()
-	m.innerWidth = m.panelWidth - frameWidth
-	m.innerHeight = m.panelHeight - frameHeight
+	m.innerWidth = m.panelWidth
+	m.innerHeight = m.panelHeight
 	if m.innerWidth < 0 {
 		m.innerWidth = 0
 	}
@@ -489,20 +483,11 @@ func (m *Model) bodyHeight() int {
 	return m.panelHeight
 }
 
-func panelFrameSize() (int, int) {
-	frameWidth, frameHeight := panelStyle.GetFrameSize()
-	return frameWidth, frameHeight
-}
-
-func (m *Model) renderPanel(content string) string {
-	panel := panelStyle.Width(m.panelWidth).Height(m.panelHeight).Render(content)
-	return lipgloss.Place(m.width, m.panelHeight, lipgloss.Center, lipgloss.Top, panel)
-}
-
 func (m *Model) menuView() string {
 	title := menuTitle.Render("Reddit Stream Console")
 	subtitle := statusStyle.Render("Live comment stream, zero fluff.")
-	return lipgloss.JoinVertical(lipgloss.Left, title, subtitle, "", m.menu.View())
+	divider := strings.Repeat("-", max(0, m.width))
+	return lipgloss.JoinVertical(lipgloss.Left, title, subtitle, divider, m.menu.View())
 }
 
 func (m *Model) threadListView() string {
@@ -510,7 +495,8 @@ func (m *Model) threadListView() string {
 	if m.currentMenu != nil && m.currentMenu.Title != "" {
 		title = menuTitle.Render(m.currentMenu.Title)
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, title, "", m.threads.View())
+	divider := strings.Repeat("-", max(0, m.width))
+	return lipgloss.JoinVertical(lipgloss.Left, title, divider, m.threads.View())
 }
 
 func (m *Model) footerView() string {
@@ -662,10 +648,10 @@ func renderComments(comments []reddit.Comment, width int, filter string) string 
 			headerPrefix := headerPrefix(hasNext, isLast)
 			bodyPrefix := bodyPrefix(hasNext, isLast)
 
-			header := fmt.Sprintf("%s | %d points | %s", node.comment.Author, node.comment.Score, node.comment.FormattedTime)
+			header := formatHeader(node.comment)
 			for _, line := range wrapWithPrefix(header, width, headerPrefix) {
 				b.WriteString(commentTreeStyle.Render(headerPrefix))
-				b.WriteString(commentHeader.Render(strings.TrimPrefix(line, headerPrefix)))
+				b.WriteString(strings.TrimPrefix(line, headerPrefix))
 				b.WriteString("\n")
 			}
 			for _, line := range wrapWithPrefix(node.comment.Body, width, bodyPrefix) {
@@ -684,6 +670,14 @@ func renderComments(comments []reddit.Comment, width int, filter string) string 
 	return b.String()
 }
 
+func formatHeader(comment reddit.Comment) string {
+	author := commentAuthor.Render(comment.Author)
+	score := commentScore.Render(fmt.Sprintf("%d points", comment.Score))
+	timeText := commentTime.Render(comment.FormattedTime)
+	separator := commentTreeStyle.Render(" • ")
+	return author + separator + score + separator + timeText
+}
+
 func wrapWithPrefix(text string, width int, prefix string) []string {
 	if width <= 0 {
 		return []string{prefix + text}
@@ -696,14 +690,14 @@ func wrapWithPrefix(text string, width int, prefix string) []string {
 	lines := make([]string, 0, 8)
 	paragraphs := strings.Split(text, "\n")
 	for _, paragraph := range paragraphs {
-		words := strings.Fields(paragraph)
+		words := ansiFields(paragraph)
 		if len(words) == 0 {
 			lines = append(lines, prefix)
 			continue
 		}
 		line := words[0]
 		for _, word := range words[1:] {
-			if len(line)+1+len(word) > available {
+			if lipgloss.Width(line)+1+lipgloss.Width(word) > available {
 				lines = append(lines, prefix+line)
 				line = word
 				continue
@@ -786,4 +780,18 @@ func bodyPrefix(hasNext []bool, isLast bool) string {
 		b.WriteString("|  ")
 	}
 	return b.String()
+}
+
+func ansiFields(text string) []string {
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	return strings.Fields(text)
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
