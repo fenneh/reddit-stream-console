@@ -27,9 +27,12 @@ const (
 const refreshInterval = 5 * time.Second
 
 var (
-	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
-	statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("102"))
-	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	headerStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	statusStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("102"))
+	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	menuTitle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	menuItem     = lipgloss.NewStyle().Foreground(lipgloss.Color("151"))
+	menuSelected = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
 )
 
 type Model struct {
@@ -57,14 +60,26 @@ type Model struct {
 }
 
 func NewModel(menuItems []config.MenuItem, client *reddit.Client) Model {
-	menuList := list.New(menuItemsToItems(menuItems), list.NewDefaultDelegate(), 0, 0)
+	menuDelegate := list.NewDefaultDelegate()
+	menuDelegate.Styles.SelectedTitle = menuSelected
+	menuDelegate.Styles.SelectedDesc = menuSelected
+	menuDelegate.Styles.NormalTitle = menuItem
+	menuDelegate.Styles.NormalDesc = menuItem
+	menuList := list.New(menuItemsToItems(menuItems), menuDelegate, 0, 0)
 	menuList.Title = "Reddit Stream Console"
+	menuList.Styles.Title = menuTitle
 	menuList.SetShowHelp(false)
 	menuList.SetShowStatusBar(false)
 	menuList.SetFilteringEnabled(false)
 
-	threadList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	threadDelegate := list.NewDefaultDelegate()
+	threadDelegate.Styles.SelectedTitle = menuSelected
+	threadDelegate.Styles.SelectedDesc = menuSelected
+	threadDelegate.Styles.NormalTitle = menuItem
+	threadDelegate.Styles.NormalDesc = menuItem
+	threadList := list.New([]list.Item{}, threadDelegate, 0, 0)
 	threadList.Title = "Threads"
+	threadList.Styles.Title = menuTitle
 	threadList.SetShowHelp(false)
 	threadList.SetShowStatusBar(false)
 	threadList.SetFilteringEnabled(false)
@@ -135,6 +150,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.resize()
+		m.updateViewport()
 		return m, nil
 	case tea.KeyMsg:
 		// allow list and input widgets to handle navigation
@@ -417,6 +433,9 @@ func (m *Model) resize() {
 	m.threads.SetSize(m.width, bodyHeight)
 	m.viewport.Width = m.width
 	m.viewport.Height = bodyHeight
+	if m.mode == modeComments {
+		m.updateViewport()
+	}
 }
 
 func (m *Model) updateViewport() {
@@ -577,7 +596,7 @@ func renderComments(comments []reddit.Comment, width int, filter string) string 
 		indent := strings.Repeat("  ", c.Depth)
 		header := fmt.Sprintf("%s%s | %d points | %s", indent, c.Author, c.Score, c.FormattedTime)
 		for _, line := range wrapText(header, width) {
-			b.WriteString(line)
+			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214")).Render(line))
 			b.WriteString("\n")
 		}
 		body := indent + c.Body
