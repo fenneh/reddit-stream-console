@@ -244,10 +244,10 @@ func (m Model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
 }
 
-func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+func (m *Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 	switch msg.String() {
 	case "ctrl+c", "q":
-		return m, tea.Quit, true
+		return *m, tea.Quit, true
 	}
 
 	switch m.mode {
@@ -256,20 +256,20 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			item := m.menu.SelectedItem()
 			menuItem, ok := item.(menuItemItem)
 			if !ok {
-				return m, nil, true
+				return *m, nil, true
 			}
 			if menuItem.item.Type == "separator" {
-				return m, nil, true
+				return *m, nil, true
 			}
 			if menuItem.item.Type == "url_input" {
 				m.mode = modeURLInput
 				m.urlInput.SetValue("")
 				m.urlInput.Focus()
-				return m, nil, true
+				return *m, nil, true
 			}
 			m.status = fmt.Sprintf("Loading %s...", menuItem.item.Title)
 			m.err = ""
-			return m, fetchThreadsCmd(m.client, menuItem.item), true
+			return *m, fetchThreadsCmd(m.client, menuItem.item), true
 		}
 	case modeThreadList:
 		switch msg.String() {
@@ -277,7 +277,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			item := m.threads.SelectedItem()
 			threadItem, ok := item.(threadItem)
 			if !ok {
-				return m, nil, true
+				return *m, nil, true
 			}
 			m.currentThread = &threadItem.thread
 			m.mode = modeComments
@@ -288,15 +288,15 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			m.filterActive = false
 			m.filterInput.SetValue("")
 			m.updateViewport()
-			return m, tea.Batch(fetchCommentsCmd(m.client, m.currentThread), refreshTickCmd()), true
+			return *m, tea.Batch(fetchCommentsCmd(m.client, m.currentThread), refreshTickCmd()), true
 		case "backspace":
 			m.mode = modeMenu
 			m.currentMenu = nil
-			return m, nil, true
+			return *m, nil, true
 		case "esc":
 			m.mode = modeMenu
 			m.currentMenu = nil
-			return m, nil, true
+			return *m, nil, true
 		}
 	case modeComments:
 		return m.handleCommentsKeys(msg)
@@ -306,21 +306,21 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			url := strings.TrimSpace(m.urlInput.Value())
 			if url == "" {
 				m.mode = modeMenu
-				return m, nil, true
+				return *m, nil, true
 			}
 			m.status = "Loading thread..."
 			m.err = ""
-			return m, fetchThreadFromURLCmd(m.client, url), true
+			return *m, fetchThreadFromURLCmd(m.client, url), true
 		case "esc":
 			m.mode = modeMenu
-			return m, nil, true
+			return *m, nil, true
 		}
 	}
 
-	return m, nil, false
+	return *m, nil, false
 }
 
-func (m *Model) handleCommentsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+func (m *Model) handleCommentsKeys(msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 	if m.filterActive {
 		switch msg.String() {
 		case "esc":
@@ -328,14 +328,14 @@ func (m *Model) handleCommentsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			m.filterInput.SetValue("")
 			m.commentFilter = ""
 			m.updateViewport()
-			return m, nil, true
+			return *m, nil, true
 		case "enter":
 			if strings.TrimSpace(m.filterInput.Value()) == "" {
 				m.filterActive = false
 				m.filterInput.SetValue("")
 				m.commentFilter = ""
 				m.updateViewport()
-				return m, nil, true
+				return *m, nil, true
 			}
 		}
 	}
@@ -344,25 +344,25 @@ func (m *Model) handleCommentsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	case "r":
 		if m.currentThread != nil {
 			m.loadingComments = true
-			return m, fetchCommentsCmd(m.client, m.currentThread), true
+			return *m, fetchCommentsCmd(m.client, m.currentThread), true
 		}
 	case "esc":
 		m.mode = modeMenu
 		m.currentThread = nil
 		m.refreshEnabled = false
-		return m, nil, true
+		return *m, nil, true
 	case "backspace":
 		if m.filterActive {
-			return m, nil, true
+			return *m, nil, true
 		}
 		m.mode = modeThreadList
 		m.currentThread = nil
 		m.refreshEnabled = false
-		return m, nil, true
+		return *m, nil, true
 	case "end":
 		m.userScrolled = false
 		m.viewport.GotoBottom()
-		return m, nil, true
+		return *m, nil, true
 	case "/":
 		m.filterActive = !m.filterActive
 		if m.filterActive {
@@ -374,30 +374,30 @@ func (m *Model) handleCommentsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			m.updateViewport()
 		}
 		m.resize()
-		return m, nil, true
+		return *m, nil, true
 	case "up", "k":
 		m.viewport.LineUp(1)
 		m.userScrolled = true
-		return m, nil, true
+		return *m, nil, true
 	case "down", "j":
 		m.viewport.LineDown(1)
 		if m.viewport.AtBottom() {
 			m.userScrolled = false
 		}
-		return m, nil, true
+		return *m, nil, true
 	case "pgup":
 		m.viewport.ViewUp()
 		m.userScrolled = true
-		return m, nil, true
+		return *m, nil, true
 	case "pgdown":
 		m.viewport.ViewDown()
 		if m.viewport.AtBottom() {
 			m.userScrolled = false
 		}
-		return m, nil, true
+		return *m, nil, true
 	}
 
-	return m, nil, false
+	return *m, nil, false
 }
 
 func (m *Model) resize() {
