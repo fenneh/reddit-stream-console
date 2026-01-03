@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 type AppConfig struct {
@@ -51,7 +52,7 @@ func (s *StringOrSlice) UnmarshalJSON(data []byte) error {
 
 func LoadMenuConfig(path string) (MenuConfig, error) {
 	var cfg MenuConfig
-	data, err := os.ReadFile(path)
+	data, err := readConfigFile(path)
 	if err != nil {
 		return cfg, fmt.Errorf("read menu config: %w", err)
 	}
@@ -63,7 +64,7 @@ func LoadMenuConfig(path string) (MenuConfig, error) {
 
 func LoadAppConfig(path string) (AppConfig, error) {
 	var cfg AppConfig
-	data, err := os.ReadFile(path)
+	data, err := readConfigFile(path)
 	if err != nil {
 		return cfg, fmt.Errorf("read app config: %w", err)
 	}
@@ -71,4 +72,34 @@ func LoadAppConfig(path string) (AppConfig, error) {
 		return cfg, fmt.Errorf("parse app config: %w", err)
 	}
 	return cfg, nil
+}
+
+func readConfigFile(path string) ([]byte, error) {
+	if filepath.IsAbs(path) {
+		return os.ReadFile(path)
+	}
+
+	// Try current working directory first.
+	if data, err := os.ReadFile(path); err == nil {
+		return data, nil
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	exeDir := filepath.Dir(exePath)
+
+	candidates := []string{
+		filepath.Join(exeDir, path),
+		filepath.Join(exeDir, "..", path),
+	}
+
+	for _, candidate := range candidates {
+		if data, err := os.ReadFile(candidate); err == nil {
+			return data, nil
+		}
+	}
+
+	return nil, os.ErrNotExist
 }
