@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 )
@@ -62,10 +61,6 @@ func (c *Client) FetchComments(permalink string) ([]Comment, string, error) {
 		}
 		c.processComment(thing.Data, postID, 0, &comments)
 	}
-
-	sort.Slice(comments, func(i, j int) bool {
-		return comments[i].CreatedUTC < comments[j].CreatedUTC
-	})
 
 	return comments, postTitle, nil
 }
@@ -219,6 +214,10 @@ func (c *Client) processComment(raw json.RawMessage, postID string, depth int, o
 		return
 	}
 
+	parentID := strings.TrimPrefix(comment.ParentID, "t1_")
+	if strings.HasPrefix(comment.ParentID, "t3_") {
+		parentID = ""
+	}
 	*out = append(*out, Comment{
 		ID:            comment.ID,
 		Author:        fallback(comment.Author, "[deleted]"),
@@ -227,7 +226,7 @@ func (c *Client) processComment(raw json.RawMessage, postID string, depth int, o
 		FormattedTime: formatTimestamp(comment.CreatedUTC),
 		Score:         comment.Score,
 		Depth:         depth,
-		ParentID:      strings.TrimPrefix(comment.ParentID, "t1_"),
+		ParentID:      parentID,
 	})
 
 	if len(comment.Replies) == 0 || string(comment.Replies) == "\"\"" {

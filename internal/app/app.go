@@ -55,6 +55,10 @@ type Model struct {
 	viewport        viewport.Model
 	width           int
 	height          int
+	panelWidth      int
+	panelHeight     int
+	innerWidth      int
+	innerHeight     int
 	status          string
 	err             string
 	userScrolled    bool
@@ -71,7 +75,7 @@ func NewModel(menuItems []config.MenuItem, client *reddit.Client) Model {
 	menuDelegate.Styles.NormalTitle = menuItem
 	menuDelegate.Styles.NormalDesc = menuItem
 	menuList := list.New(menuItemsToItems(menuItems), menuDelegate, 0, 0)
-	menuList.Title = "Reddit Stream Console"
+	menuList.Title = ""
 	menuList.Styles.Title = menuTitle
 	menuList.SetShowHelp(false)
 	menuList.SetShowStatusBar(false)
@@ -83,7 +87,7 @@ func NewModel(menuItems []config.MenuItem, client *reddit.Client) Model {
 	threadDelegate.Styles.NormalTitle = menuItem
 	threadDelegate.Styles.NormalDesc = menuItem
 	threadList := list.New([]list.Item{}, threadDelegate, 0, 0)
-	threadList.Title = "Threads"
+	threadList.Title = ""
 	threadList.Styles.Title = menuTitle
 	threadList.SetShowHelp(false)
 	threadList.SetShowStatusBar(false)
@@ -249,18 +253,18 @@ func (m Model) View() string {
 
 	switch m.mode {
 	case modeMenu:
-		body = panelStyle.Width(m.width).Height(m.bodyHeight()).Render(m.menu.View())
+		body = m.renderPanel(m.menuView())
 	case modeThreadList:
-		body = panelStyle.Width(m.width).Height(m.bodyHeight()).Render(m.threads.View())
+		body = m.renderPanel(m.threadListView())
 	case modeURLInput:
 		content := fmt.Sprintf("Enter Reddit URL\n\n%s\n\n[enter] submit  [esc] cancel", m.urlInput.View())
-		body = panelStyle.Width(m.width).Height(m.bodyHeight()).Render(content)
+		body = m.renderPanel(content)
 	case modeComments:
 		content := m.viewport.View()
 		if m.filterActive {
 			content = content + "\n" + m.filterInput.View()
 		}
-		body = panelStyle.Width(m.width).Height(m.bodyHeight()).Render(content)
+		body = m.renderPanel(content)
 	}
 
 	footer := lipgloss.NewStyle().Width(m.width).Padding(0, 1).Render(m.footerView())
@@ -426,32 +430,48 @@ func (m *Model) handleCommentsKeys(msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 func (m *Model) resize() {
 	headerHeight := 1
 	footerHeight := 1
-	filterHeight := 0
-	if m.mode == modeComments && m.filterActive {
-		filterHeight = 1
+
+	m.panelHeight = m.height - headerHeight - footerHeight
+	if m.panelHeight < 0 {
+		m.panelHeight = 0
 	}
 
-	bodyHeight := m.height - headerHeight - footerHeight - filterHeight
-	if bodyHeight < 0 {
-		bodyHeight = 0
+	maxWidth := 96
+	if m.mode == modeComments {
+		maxWidth = m.width
+	}
+	m.panelWidth = m.width
+	if m.panelWidth > maxWidth {
+		m.panelWidth = maxWidth
+	}
+	if m.panelWidth < 0 {
+		m.panelWidth = 0
 	}
 
 	frameWidth, frameHeight := panelFrameSize()
-	innerWidth := m.width - frameWidth
-	innerHeight := bodyHeight - frameHeight
-	if innerWidth < 0 {
-		innerWidth = 0
+	m.innerWidth = m.panelWidth - frameWidth
+	m.innerHeight = m.panelHeight - frameHeight
+	if m.innerWidth < 0 {
+		m.innerWidth = 0
 	}
-	if innerHeight < 0 {
-		innerHeight = 0
+	if m.innerHeight < 0 {
+		m.innerHeight = 0
 	}
 
-	m.menu.SetSize(innerWidth, innerHeight)
-	m.threads.SetSize(innerWidth, innerHeight)
-	m.viewport.Width = innerWidth
-	m.viewport.Height = innerHeight
-	m.filterInput.Width = innerWidth
-	m.urlInput.Width = innerWidth
+	viewportHeight := m.innerHeight
+	if m.mode == modeComments && m.filterActive {
+		viewportHeight--
+	}
+	if viewportHeight < 0 {
+		viewportHeight = 0
+	}
+
+	m.menu.SetSize(m.innerWidth, m.innerHeight)
+	m.threads.SetSize(m.innerWidth, m.innerHeight)
+	m.viewport.Width = m.innerWidth
+	m.viewport.Height = viewportHeight
+	m.filterInput.Width = m.innerWidth
+	m.urlInput.Width = m.innerWidth
 	if m.mode == modeComments {
 		m.updateViewport()
 	}
@@ -466,12 +486,31 @@ func (m *Model) updateViewport() {
 }
 
 func (m *Model) bodyHeight() int {
-	return m.height - 2
+	return m.panelHeight
 }
 
 func panelFrameSize() (int, int) {
 	frameWidth, frameHeight := panelStyle.GetFrameSize()
 	return frameWidth, frameHeight
+}
+
+func (m *Model) renderPanel(content string) string {
+	panel := panelStyle.Width(m.panelWidth).Height(m.panelHeight).Render(content)
+	return lipgloss.Place(m.width, m.panelHeight, lipgloss.Center, lipgloss.Top, panel)
+}
+
+func (m *Model) menuView() string {
+	title := menuTitle.Render("Reddit Stream Console")
+	subtitle := statusStyle.Render("Live comment stream, zero fluff.")
+	return lipgloss.JoinVertical(lipgloss.Left, title, subtitle, "", m.menu.View())
+}
+
+func (m *Model) threadListView() string {
+	title := menuTitle.Render("Threads")
+	if m.currentMenu != nil && m.currentMenu.Title != "" {
+		title = menuTitle.Render(m.currentMenu.Title)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", m.threads.View())
 }
 
 func (m *Model) footerView() string {
@@ -615,45 +654,34 @@ func renderComments(comments []reddit.Comment, width int, filter string) string 
 	var b strings.Builder
 	filterLower := strings.ToLower(strings.TrimSpace(filter))
 
-	for _, c := range comments {
-		if filterLower != "" {
-			if !strings.Contains(strings.ToLower(c.Author), filterLower) && !strings.Contains(strings.ToLower(c.Body), filterLower) {
-				continue
+	roots := buildCommentTree(comments, filterLower)
+	var walk func(nodes []*commentNode, hasNext []bool)
+	walk = func(nodes []*commentNode, hasNext []bool) {
+		for i, node := range nodes {
+			isLast := i == len(nodes)-1
+			headerPrefix := headerPrefix(hasNext, isLast)
+			bodyPrefix := bodyPrefix(hasNext, isLast)
+
+			header := fmt.Sprintf("%s | %d points | %s", node.comment.Author, node.comment.Score, node.comment.FormattedTime)
+			for _, line := range wrapWithPrefix(header, width, headerPrefix) {
+				b.WriteString(commentTreeStyle.Render(headerPrefix))
+				b.WriteString(commentHeader.Render(strings.TrimPrefix(line, headerPrefix)))
+				b.WriteString("\n")
+			}
+			for _, line := range wrapWithPrefix(node.comment.Body, width, bodyPrefix) {
+				b.WriteString(commentTreeStyle.Render(bodyPrefix))
+				b.WriteString(commentBodyStyle.Render(strings.TrimPrefix(line, bodyPrefix)))
+				b.WriteString("\n")
+			}
+			b.WriteString("\n")
+
+			if len(node.children) > 0 {
+				walk(node.children, append(hasNext, !isLast))
 			}
 		}
-		prefix := commentPrefix(c.Depth)
-		bodyPrefix := prefixBody(prefix)
-		header := fmt.Sprintf("%s | %d points | %s", c.Author, c.Score, c.FormattedTime)
-		for _, line := range wrapWithPrefix(header, width, prefix) {
-			b.WriteString(commentTreeStyle.Render(prefix))
-			b.WriteString(commentHeader.Render(strings.TrimPrefix(line, prefix)))
-			b.WriteString("\n")
-		}
-		for _, line := range wrapWithPrefix(c.Body, width, bodyPrefix) {
-			b.WriteString(commentTreeStyle.Render(bodyPrefix))
-			b.WriteString(commentBodyStyle.Render(strings.TrimPrefix(line, bodyPrefix)))
-			b.WriteString("\n")
-		}
-		b.WriteString("\n")
 	}
+	walk(roots, nil)
 	return b.String()
-}
-
-func commentPrefix(depth int) string {
-	if depth <= 0 {
-		return ""
-	}
-	if depth == 1 {
-		return "+- "
-	}
-	return strings.Repeat("| ", depth-1) + "+- "
-}
-
-func prefixBody(prefix string) string {
-	if prefix == "" {
-		return ""
-	}
-	return strings.ReplaceAll(prefix, "+- ", "|  ")
 }
 
 func wrapWithPrefix(text string, width int, prefix string) []string {
@@ -685,4 +713,77 @@ func wrapWithPrefix(text string, width int, prefix string) []string {
 		lines = append(lines, prefix+line)
 	}
 	return lines
+}
+
+type commentNode struct {
+	comment  reddit.Comment
+	children []*commentNode
+}
+
+func buildCommentTree(comments []reddit.Comment, filterLower string) []*commentNode {
+	nodes := make(map[string]*commentNode, len(comments))
+	order := make([]*commentNode, 0, len(comments))
+
+	for _, c := range comments {
+		if filterLower != "" {
+			author := strings.ToLower(c.Author)
+			body := strings.ToLower(c.Body)
+			if !strings.Contains(author, filterLower) && !strings.Contains(body, filterLower) {
+				continue
+			}
+		}
+		node := &commentNode{comment: c}
+		nodes[c.ID] = node
+		order = append(order, node)
+	}
+
+	roots := make([]*commentNode, 0, len(order))
+	for _, node := range order {
+		parentID := strings.TrimSpace(node.comment.ParentID)
+		if parentID == "" {
+			roots = append(roots, node)
+			continue
+		}
+		parent, ok := nodes[parentID]
+		if !ok {
+			roots = append(roots, node)
+			continue
+		}
+		parent.children = append(parent.children, node)
+	}
+	return roots
+}
+
+func headerPrefix(hasNext []bool, isLast bool) string {
+	var b strings.Builder
+	for _, sibling := range hasNext {
+		if sibling {
+			b.WriteString("|  ")
+		} else {
+			b.WriteString("   ")
+		}
+	}
+	if isLast {
+		b.WriteString("`- ")
+	} else {
+		b.WriteString("+- ")
+	}
+	return b.String()
+}
+
+func bodyPrefix(hasNext []bool, isLast bool) string {
+	var b strings.Builder
+	for _, sibling := range hasNext {
+		if sibling {
+			b.WriteString("|  ")
+		} else {
+			b.WriteString("   ")
+		}
+	}
+	if isLast {
+		b.WriteString("   ")
+	} else {
+		b.WriteString("|  ")
+	}
+	return b.String()
 }
