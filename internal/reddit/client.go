@@ -220,14 +220,14 @@ func (c *Client) processComment(raw json.RawMessage, postID string, depth int, o
 	}
 
 	*out = append(*out, Comment{
-		ID:           comment.ID,
-		Author:       fallback(comment.Author, "[deleted]"),
-		Body:         comment.Body,
-		CreatedUTC:   comment.CreatedUTC,
+		ID:            comment.ID,
+		Author:        fallback(comment.Author, "[deleted]"),
+		Body:          comment.Body,
+		CreatedUTC:    comment.CreatedUTC,
 		FormattedTime: formatTimestamp(comment.CreatedUTC),
-		Score:        comment.Score,
-		Depth:        depth,
-		ParentID:     strings.TrimPrefix(comment.ParentID, "t1_"),
+		Score:         comment.Score,
+		Depth:         depth,
+		ParentID:      strings.TrimPrefix(comment.ParentID, "t1_"),
 	})
 
 	if len(comment.Replies) == 0 || string(comment.Replies) == "\"\"" {

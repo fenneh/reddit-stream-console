@@ -15,15 +15,15 @@ type MenuConfig struct {
 }
 
 type MenuItem struct {
-	Title              string        `json:"title"`
-	Type               string        `json:"type"`
-	Subreddit          string        `json:"subreddit"`
-	Flair              StringOrSlice `json:"flair"`
-	MaxAgeHours        int           `json:"max_age_hours"`
-	Limit              int           `json:"limit"`
-	TitleMustContain   []string      `json:"title_must_contain"`
-	TitleMustNotContain []string     `json:"title_must_not_contain"`
-	Description        string        `json:"description"`
+	Title               string        `json:"title"`
+	Type                string        `json:"type"`
+	Subreddit           string        `json:"subreddit"`
+	Flair               StringOrSlice `json:"flair"`
+	MaxAgeHours         int           `json:"max_age_hours"`
+	Limit               int           `json:"limit"`
+	TitleMustContain    []string      `json:"title_must_contain"`
+	TitleMustNotContain []string      `json:"title_must_not_contain"`
+	Description         string        `json:"description"`
 }
 
 type StringOrSlice []string

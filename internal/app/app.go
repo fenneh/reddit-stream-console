@@ -97,9 +97,9 @@ func (m Model) Init() tea.Cmd {
 }
 
 type threadsLoadedMsg struct {
-	threads   []reddit.Thread
-	err       error
-	menuItem  config.MenuItem
+	threads  []reddit.Thread
+	err      error
+	menuItem config.MenuItem
 }
 
 type commentsLoadedMsg struct {
