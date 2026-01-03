@@ -27,12 +27,17 @@ const (
 const refreshInterval = 5 * time.Second
 
 var (
-	headerStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
-	statusStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("102"))
-	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	menuTitle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
-	menuItem     = lipgloss.NewStyle().Foreground(lipgloss.Color("151"))
-	menuSelected = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	statusStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("102"))
+	errorStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	menuTitle        = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	menuItem         = lipgloss.NewStyle().Foreground(lipgloss.Color("151"))
+	menuSelected     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+	panelBorder      = lipgloss.Border{Top: "-", Bottom: "-", Left: "|", Right: "|", TopLeft: "+", TopRight: "+", BottomLeft: "+", BottomRight: "+"}
+	panelStyle       = lipgloss.NewStyle().Border(panelBorder).BorderForeground(lipgloss.Color("240")).Padding(1, 2)
+	commentHeader    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+	commentBodyStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	commentTreeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 )
 
 type Model struct {
@@ -239,24 +244,26 @@ func (m Model) View() string {
 		return ""
 	}
 
-	header := headerStyle.Render(m.headerTitle())
+	header := lipgloss.NewStyle().Width(m.width).Padding(0, 1).Render(headerStyle.Render(m.headerTitle()))
 	body := ""
 
 	switch m.mode {
 	case modeMenu:
-		body = m.menu.View()
+		body = panelStyle.Width(m.width).Height(m.bodyHeight()).Render(m.menu.View())
 	case modeThreadList:
-		body = m.threads.View()
+		body = panelStyle.Width(m.width).Height(m.bodyHeight()).Render(m.threads.View())
 	case modeURLInput:
-		body = fmt.Sprintf("Enter Reddit URL\n\n%s\n\n[enter] submit  [esc] cancel", m.urlInput.View())
+		content := fmt.Sprintf("Enter Reddit URL\n\n%s\n\n[enter] submit  [esc] cancel", m.urlInput.View())
+		body = panelStyle.Width(m.width).Height(m.bodyHeight()).Render(content)
 	case modeComments:
-		body = m.viewport.View()
+		content := m.viewport.View()
 		if m.filterActive {
-			body = body + "\n" + m.filterInput.View()
+			content = content + "\n" + m.filterInput.View()
 		}
+		body = panelStyle.Width(m.width).Height(m.bodyHeight()).Render(content)
 	}
 
-	footer := m.footerView()
+	footer := lipgloss.NewStyle().Width(m.width).Padding(0, 1).Render(m.footerView())
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
 }
 
@@ -429,21 +436,42 @@ func (m *Model) resize() {
 		bodyHeight = 0
 	}
 
-	m.menu.SetSize(m.width, bodyHeight)
-	m.threads.SetSize(m.width, bodyHeight)
-	m.viewport.Width = m.width
-	m.viewport.Height = bodyHeight
+	frameWidth, frameHeight := panelFrameSize()
+	innerWidth := m.width - frameWidth
+	innerHeight := bodyHeight - frameHeight
+	if innerWidth < 0 {
+		innerWidth = 0
+	}
+	if innerHeight < 0 {
+		innerHeight = 0
+	}
+
+	m.menu.SetSize(innerWidth, innerHeight)
+	m.threads.SetSize(innerWidth, innerHeight)
+	m.viewport.Width = innerWidth
+	m.viewport.Height = innerHeight
+	m.filterInput.Width = innerWidth
+	m.urlInput.Width = innerWidth
 	if m.mode == modeComments {
 		m.updateViewport()
 	}
 }
 
 func (m *Model) updateViewport() {
-	if m.width == 0 {
+	if m.viewport.Width == 0 {
 		return
 	}
-	content := renderComments(m.comments, m.width, m.commentFilter)
+	content := renderComments(m.comments, m.viewport.Width, m.commentFilter)
 	m.viewport.SetContent(content)
+}
+
+func (m *Model) bodyHeight() int {
+	return m.height - 2
+}
+
+func panelFrameSize() (int, int) {
+	frameWidth, frameHeight := panelStyle.GetFrameSize()
+	return frameWidth, frameHeight
 }
 
 func (m *Model) footerView() string {
@@ -593,15 +621,17 @@ func renderComments(comments []reddit.Comment, width int, filter string) string 
 				continue
 			}
 		}
-		indent := strings.Repeat("  ", c.Depth)
-		header := fmt.Sprintf("%s%s | %d points | %s", indent, c.Author, c.Score, c.FormattedTime)
-		for _, line := range wrapText(header, width) {
-			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214")).Render(line))
+		prefix := commentPrefix(c.Depth)
+		bodyPrefix := prefixBody(prefix)
+		header := fmt.Sprintf("%s | %d points | %s", c.Author, c.Score, c.FormattedTime)
+		for _, line := range wrapWithPrefix(header, width, prefix) {
+			b.WriteString(commentTreeStyle.Render(prefix))
+			b.WriteString(commentHeader.Render(strings.TrimPrefix(line, prefix)))
 			b.WriteString("\n")
 		}
-		body := indent + c.Body
-		for _, line := range wrapText(body, width) {
-			b.WriteString(line)
+		for _, line := range wrapWithPrefix(c.Body, width, bodyPrefix) {
+			b.WriteString(commentTreeStyle.Render(bodyPrefix))
+			b.WriteString(commentBodyStyle.Render(strings.TrimPrefix(line, bodyPrefix)))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -609,48 +639,50 @@ func renderComments(comments []reddit.Comment, width int, filter string) string 
 	return b.String()
 }
 
-func wrapText(text string, width int) []string {
+func commentPrefix(depth int) string {
+	if depth <= 0 {
+		return ""
+	}
+	if depth == 1 {
+		return "+- "
+	}
+	return strings.Repeat("| ", depth-1) + "+- "
+}
+
+func prefixBody(prefix string) string {
+	if prefix == "" {
+		return ""
+	}
+	return strings.ReplaceAll(prefix, "+- ", "|  ")
+}
+
+func wrapWithPrefix(text string, width int, prefix string) []string {
 	if width <= 0 {
-		return []string{text}
+		return []string{prefix + text}
 	}
-
-	prefix := leadingSpaces(text)
-	content := strings.TrimLeft(text, " ")
-	if content == "" {
-		return []string{text}
-	}
-
 	available := width - len(prefix)
-	if available < 1 {
-		return []string{text}
-	}
-
-	words := strings.Fields(content)
-	if len(words) == 0 {
-		return []string{""}
+	if available <= 0 {
+		return []string{prefix + text}
 	}
 
 	lines := make([]string, 0, 8)
-	line := words[0]
-	for _, word := range words[1:] {
-		if len(line)+1+len(word) > available {
-			lines = append(lines, prefix+line)
-			line = word
+	paragraphs := strings.Split(text, "\n")
+	for _, paragraph := range paragraphs {
+		words := strings.Fields(paragraph)
+		if len(words) == 0 {
+			lines = append(lines, prefix)
 			continue
 		}
-		line = line + " " + word
-	}
-	lines = append(lines, prefix+line)
-	return lines
-}
-
-func leadingSpaces(value string) string {
-	count := 0
-	for _, r := range value {
-		if r != ' ' {
-			break
+		line := words[0]
+		for _, word := range words[1:] {
+			if len(line)+1+len(word) > available {
+				lines = append(lines, prefix+line)
+				line = word
+				continue
+			}
+			line = line + " " + word
 		}
-		count++
+		lines = append(lines, prefix+line)
 	}
-	return strings.Repeat(" ", count)
+	return lines
 }
