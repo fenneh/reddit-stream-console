@@ -30,6 +30,16 @@ jobs:
         with:
           go-version: "1.22"
 
+      - name: gofmt
+        shell: bash
+        run: |
+          gofmt -w ./cmd ./internal
+          if ! git diff --quiet; then
+            echo "gofmt produced changes; run gofmt locally."
+            git diff --stat
+            exit 1
+          fi
+
       - name: Build
         shell: bash
         run: |
