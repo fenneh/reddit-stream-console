@@ -30,7 +30,8 @@ var (
 	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
 	statusStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("102"))
 	errorStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	menuTitle        = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
+	appStyle         = lipgloss.NewStyle().Padding(1, 2)
+	titleStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#1F6F5C")).Padding(0, 1)
 	menuItem         = lipgloss.NewStyle().Foreground(lipgloss.Color("151"))
 	menuSelected     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
 	commentHeader    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
@@ -56,10 +57,6 @@ type Model struct {
 	viewport        viewport.Model
 	width           int
 	height          int
-	panelWidth      int
-	panelHeight     int
-	innerWidth      int
-	innerHeight     int
 	status          string
 	err             string
 	userScrolled    bool
@@ -76,8 +73,8 @@ func NewModel(menuItems []config.MenuItem, client *reddit.Client) Model {
 	menuDelegate.Styles.NormalTitle = menuItem
 	menuDelegate.Styles.NormalDesc = menuItem
 	menuList := list.New(menuItemsToItems(menuItems), menuDelegate, 0, 0)
-	menuList.Title = ""
-	menuList.Styles.Title = menuTitle
+	menuList.Title = "Reddit Stream Console"
+	menuList.Styles.Title = titleStyle
 	menuList.SetShowPagination(false)
 	menuList.SetShowHelp(false)
 	menuList.SetShowStatusBar(false)
@@ -89,8 +86,8 @@ func NewModel(menuItems []config.MenuItem, client *reddit.Client) Model {
 	threadDelegate.Styles.NormalTitle = menuItem
 	threadDelegate.Styles.NormalDesc = menuItem
 	threadList := list.New([]list.Item{}, threadDelegate, 0, 0)
-	threadList.Title = ""
-	threadList.Styles.Title = menuTitle
+	threadList.Title = "Threads"
+	threadList.Styles.Title = titleStyle
 	threadList.SetShowPagination(false)
 	threadList.SetShowHelp(false)
 	threadList.SetShowStatusBar(false)
@@ -163,6 +160,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.resize()
 		m.updateViewport()
+		m.menu, _ = m.menu.Update(msg)
+		m.threads, _ = m.threads.Update(msg)
 		return m, nil
 	case tea.KeyMsg:
 		// allow list and input widgets to handle navigation
@@ -256,12 +255,12 @@ func (m Model) View() string {
 
 	switch m.mode {
 	case modeMenu:
-		body = m.menuView()
+		body = appStyle.Render(m.menu.View())
 	case modeThreadList:
-		body = m.threadListView()
+		body = appStyle.Render(m.threads.View())
 	case modeURLInput:
 		content := fmt.Sprintf("Enter Reddit URL\n\n%s\n\n[enter] submit  [esc] cancel", m.urlInput.View())
-		body = content
+		body = appStyle.Render(content)
 	case modeComments:
 		content := m.viewport.View()
 		if m.filterActive {
@@ -434,25 +433,12 @@ func (m *Model) resize() {
 	headerHeight := 1
 	footerHeight := 1
 
-	m.panelHeight = m.height - headerHeight - footerHeight
-	if m.panelHeight < 0 {
-		m.panelHeight = 0
-	}
-	m.panelWidth = m.width
-	if m.panelWidth < 0 {
-		m.panelWidth = 0
+	bodyHeight := m.height - headerHeight - footerHeight
+	if bodyHeight < 0 {
+		bodyHeight = 0
 	}
 
-	m.innerWidth = m.panelWidth
-	m.innerHeight = m.panelHeight
-	if m.innerWidth < 0 {
-		m.innerWidth = 0
-	}
-	if m.innerHeight < 0 {
-		m.innerHeight = 0
-	}
-
-	viewportHeight := m.innerHeight
+	viewportHeight := bodyHeight
 	if m.mode == modeComments && m.filterActive {
 		viewportHeight--
 	}
@@ -460,12 +446,22 @@ func (m *Model) resize() {
 		viewportHeight = 0
 	}
 
-	m.menu.SetSize(m.innerWidth, m.innerHeight)
-	m.threads.SetSize(m.innerWidth, m.innerHeight)
-	m.viewport.Width = m.innerWidth
+	frameWidth, frameHeight := appStyle.GetFrameSize()
+	menuWidth := m.width - frameWidth
+	menuHeight := bodyHeight - frameHeight
+	if menuWidth < 0 {
+		menuWidth = 0
+	}
+	if menuHeight < 0 {
+		menuHeight = 0
+	}
+
+	m.menu.SetSize(menuWidth, menuHeight)
+	m.threads.SetSize(menuWidth, menuHeight)
+	m.viewport.Width = m.width
 	m.viewport.Height = viewportHeight
-	m.filterInput.Width = m.innerWidth
-	m.urlInput.Width = m.innerWidth
+	m.filterInput.Width = m.width
+	m.urlInput.Width = menuWidth
 	if m.mode == modeComments {
 		m.updateViewport()
 	}
@@ -477,26 +473,6 @@ func (m *Model) updateViewport() {
 	}
 	content := renderComments(m.comments, m.viewport.Width, m.commentFilter)
 	m.viewport.SetContent(content)
-}
-
-func (m *Model) bodyHeight() int {
-	return m.panelHeight
-}
-
-func (m *Model) menuView() string {
-	title := menuTitle.Render("Reddit Stream Console")
-	subtitle := statusStyle.Render("Live comment stream, zero fluff.")
-	divider := strings.Repeat("-", max(0, m.width))
-	return lipgloss.JoinVertical(lipgloss.Left, title, subtitle, divider, m.menu.View())
-}
-
-func (m *Model) threadListView() string {
-	title := menuTitle.Render("Threads")
-	if m.currentMenu != nil && m.currentMenu.Title != "" {
-		title = menuTitle.Render(m.currentMenu.Title)
-	}
-	divider := strings.Repeat("-", max(0, m.width))
-	return lipgloss.JoinVertical(lipgloss.Left, title, divider, m.threads.View())
 }
 
 func (m *Model) footerView() string {
@@ -758,9 +734,9 @@ func headerPrefix(hasNext []bool, isLast bool) string {
 		}
 	}
 	if isLast {
-		b.WriteString("`- ")
+		b.WriteString("\\-> ")
 	} else {
-		b.WriteString("+- ")
+		b.WriteString("|-> ")
 	}
 	return b.String()
 }
@@ -787,11 +763,4 @@ func ansiFields(text string) []string {
 		return nil
 	}
 	return strings.Fields(text)
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
