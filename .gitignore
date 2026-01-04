@@ -47,4 +47,4 @@ go/dist/
 *.exe~
 *.dll
 *.so
-*.dylib
+*.dylib.claude/
