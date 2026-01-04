@@ -1,57 +1,54 @@
 # reddit-stream-console
 
-Terminal-based Reddit comment streamer. Like reddit-stream.com, but for people who prefer their social media in ASCII.
+Terminal-based Reddit comment streamer built with Go and [tview](https://github.com/rivo/tview). Like reddit-stream.com, but in your terminal.
 
 ![Screenshot](docs/screenshot.png)
 
+## Download
+
+Grab the latest binary for your platform from [Releases](https://github.com/fenneh/reddit-stream-console/releases).
+
+No Reddit API credentials required.
+
 ## Features
 
-- Real-time comment streaming
+- Real-time comment streaming with auto-refresh
 - Live comment filtering
-- Auto-scrolling with manual override
+- Threaded comment display
 - Keyboard-driven interface
-- Color-coded comments
 
-## Quick Start
-
-```bash
-git clone https://github.com/fenneh/reddit-stream-console.git
-cd reddit-stream-console
-./build.sh  # or build.ps1 on Windows
-```
-
-Run the binary:
+## Building from Source
 
 ```bash
+cd go
+go build -o bin/reddit-stream-console ./cmd/reddit-stream-console
 ./bin/reddit-stream-console
-```
-
-No Reddit API credentials are required. Optional: set `REDDIT_USER_AGENT` in `.env` or your shell for better API hygiene.
-
-## Docker
-
-```bash
-docker build -t reddit-stream-console .
-docker run -it --env-file .env reddit-stream-console
-```
-
-## Windows EXE
-
-```powershell
-.\build.ps1
-.\bin\reddit-stream-console.exe
 ```
 
 ## Controls
 
 | Key | Action |
 |-----|--------|
+| `j/k` or `↑/↓` | Navigate |
+| `Enter` | Select |
 | `/` | Filter comments |
-| `r` | Refresh |
-| `end` | Scroll to bottom |
-| `escape` | Menu/exit filter |
-| `backspace` | Go back |
+| `r` | Refresh comments |
+| `Esc` | Go back |
 | `q` | Quit |
+
+## Configuration
+
+The app works out of the box with sensible defaults (soccer, NFL, and FantasyPL match threads). To customize the menu, create a `config/menu_config.json` file.
+
+Config file search order:
+1. `~/.reddit-stream-console/config/menu_config.json` (home directory)
+2. Next to the executable
+3. One directory above the executable
+4. Two directories above the executable
+
+If no config file is found, built-in defaults are used.
+
+See `config/menu_config.json` for an example configuration.
 
 ## License
 

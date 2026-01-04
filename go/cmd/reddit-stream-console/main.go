@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/fenneh/reddit-stream-console/internal/app"
 	"github.com/fenneh/reddit-stream-console/internal/config"
 	"github.com/fenneh/reddit-stream-console/internal/reddit"
@@ -35,10 +33,9 @@ func main() {
 	}
 
 	client := reddit.NewClient(userAgent)
-	model := app.NewModel(menuConfig.MenuItems, client)
+	tviewApp := app.NewTviewApp(menuConfig.MenuItems, client)
 
-	program := tea.NewProgram(model, tea.WithAltScreen())
-	if _, err := program.Run(); err != nil {
+	if err := tviewApp.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start app: %v\n", err)
 		os.Exit(1)
 	}

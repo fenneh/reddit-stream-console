@@ -39,3 +39,12 @@ logs/
 # Local development
 .DS_Store
 Thumbs.db
+
+# Go
+go/bin/
+go/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib

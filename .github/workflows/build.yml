@@ -9,17 +9,50 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    working-directory: go
+
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Check formatting
+        run: |
+          gofmt -l ./cmd ./internal
+          if [ -n "$(gofmt -l ./cmd ./internal)" ]; then
+            echo "Code is not formatted. Run 'gofmt -w ./cmd ./internal'"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet ./...
+
   build:
+    needs: lint
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
             ext: ""
           - os: macos-latest
+            goos: darwin
+            goarch: amd64
             ext: ""
           - os: windows-latest
+            goos: windows
+            goarch: amd64
             ext: ".exe"
     steps:
       - name: Checkout
@@ -30,18 +63,11 @@ jobs:
         with:
           go-version: "1.22"
 
-      - name: gofmt
-        shell: bash
-        run: |
-          gofmt -w ./cmd ./internal
-          if ! git diff --quiet; then
-            echo "gofmt produced changes; run gofmt locally."
-            git diff --stat
-            exit 1
-          fi
-
       - name: Build
         shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
         run: |
           mkdir -p dist
           go build -o dist/reddit-stream-console${{ matrix.ext }} ./cmd/reddit-stream-console
@@ -49,5 +75,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: reddit-stream-console-${{ matrix.os }}
-          path: dist/reddit-stream-console${{ matrix.ext }}
+          name: reddit-stream-console-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: go/dist/reddit-stream-console${{ matrix.ext }}
