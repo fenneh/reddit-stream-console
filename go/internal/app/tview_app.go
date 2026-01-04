@@ -1,7 +1,9 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -11,6 +13,9 @@ import (
 	"github.com/fenneh/reddit-stream-console/internal/config"
 	"github.com/fenneh/reddit-stream-console/internal/reddit"
 )
+
+// Version is set at build time via ldflags
+var Version = "dev"
 
 // Colors matching the original Python app
 var (
@@ -61,6 +66,8 @@ type TviewApp struct {
 	commentFilter  string
 	refreshEnabled bool
 	stopRefresh    chan struct{}
+
+	latestVersion string // Latest version from GitHub, empty if current or unknown
 }
 
 func NewTviewApp(menuItems []config.MenuItem, client *reddit.Client) *TviewApp {
@@ -445,10 +452,34 @@ func (ta *TviewApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 }
 
 func (ta *TviewApp) showMenu() {
-	ta.updateHeader("Reddit Stream Console", "Q:Quit  Enter:Select")
+	ta.updateHeaderWithUpdate("Reddit Stream Console", "Q:Quit  Enter:Select")
 	ta.renderMenu()
 	ta.pages.SwitchToPage("menu")
 	ta.app.SetFocus(ta.menuView)
+}
+
+func (ta *TviewApp) updateHeaderWithUpdate(title, keys string) {
+	ta.header.Clear()
+	fmt.Fprintf(ta.header, " [::b]%s", title)
+
+	ta.statusBar.Clear()
+	leftPart := formatKeys(keys)
+
+	if ta.latestVersion != "" {
+		// Get terminal width for right-alignment
+		_, _, width, _ := ta.statusBar.GetInnerRect()
+		updateMsg := fmt.Sprintf("Update available: %s", ta.latestVersion)
+		// Calculate padding: width - left content - update msg - margins
+		leftLen := len(strings.ReplaceAll(leftPart, "[#DEAA79]", ""))
+		leftLen = len(strings.ReplaceAll(keys, ":", " ")) + 10 // rough estimate
+		padding := width - leftLen - len(updateMsg) - 4
+		if padding < 2 {
+			padding = 2
+		}
+		fmt.Fprintf(ta.statusBar, " %s%s[#B1C29E]%s[-]", leftPart, strings.Repeat(" ", padding), updateMsg)
+	} else {
+		fmt.Fprintf(ta.statusBar, " %s", leftPart)
+	}
 }
 
 func (ta *TviewApp) showThreads() {
@@ -801,7 +832,51 @@ func wrapText(text string, width int) []string {
 func (ta *TviewApp) Run() error {
 	// Set terminal title
 	fmt.Print("\033]0;reddit-stream-console\007")
+
+	// Check for updates in background
+	go ta.checkForUpdates()
+
 	return ta.app.Run()
+}
+
+// checkForUpdates checks GitHub for a newer release
+func (ta *TviewApp) checkForUpdates() {
+	if Version == "dev" {
+		return
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("https://api.github.com/repos/fenneh/reddit-stream-console/releases/latest")
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return
+	}
+
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return
+	}
+
+	// Compare versions (strip 'v' prefix)
+	latest := strings.TrimPrefix(release.TagName, "v")
+	current := strings.TrimPrefix(Version, "v")
+
+	if latest != current && latest > current {
+		ta.latestVersion = release.TagName
+		ta.app.QueueUpdateDraw(func() {
+			// Refresh menu footer if on menu page
+			pageName, _ := ta.pages.GetFrontPage()
+			if pageName == "menu" {
+				ta.showMenu()
+			}
+		})
+	}
 }
 
 // commentNode represents a comment with its children for tree building
