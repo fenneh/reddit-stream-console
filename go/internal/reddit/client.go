@@ -23,13 +23,15 @@ func NewClient(userAgent string) *Client {
 
 func (c *Client) FetchComments(permalink string) ([]Comment, string, error) {
 	clean := strings.Trim(permalink, "/")
-	urlStr := fmt.Sprintf("https://www.reddit.com/%s.json", clean)
+	urlStr := fmt.Sprintf("https://www.reddit.com/%s.json?sort=new&limit=200&_=%d", clean, time.Now().UnixNano())
 
 	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("build comments request: %w", err)
 	}
 	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	req.Header.Set("Pragma", "no-cache")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

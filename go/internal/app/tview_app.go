@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -700,6 +701,10 @@ func (ta *TviewApp) loadComments() {
 				ta.currentThread.Title = title
 				ta.updateHeader(title, "Q:Quit  R:Refresh  /:Filter  Esc:Back")
 			}
+			// Sort comments by time (oldest first, newest at bottom)
+			sort.Slice(comments, func(i, j int) bool {
+				return comments[i].CreatedUTC < comments[j].CreatedUTC
+			})
 			ta.comments = comments
 			ta.renderComments()
 			// Scroll to bottom
