@@ -799,6 +799,8 @@ func wrapText(text string, width int) []string {
 }
 
 func (ta *TviewApp) Run() error {
+	// Set terminal title
+	fmt.Print("\033]0;reddit-stream-console\007")
 	return ta.app.Run()
 }
 
