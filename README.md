@@ -1,5 +1,10 @@
 # reddit-stream-console
 
+[![build](https://github.com/fenneh/reddit-stream-console/actions/workflows/build.yml/badge.svg)](https://github.com/fenneh/reddit-stream-console/actions/workflows/build.yml)
+[![release](https://img.shields.io/github/v/release/fenneh/reddit-stream-console)](https://github.com/fenneh/reddit-stream-console/releases/latest)
+[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![license](https://img.shields.io/github/license/fenneh/reddit-stream-console)](LICENSE)
+
 Terminal-based Reddit comment streamer built with Go and [tview](https://github.com/rivo/tview). Like reddit-stream.com, but in your terminal.
 
 ![Screenshot](docs/screenshot.png)
