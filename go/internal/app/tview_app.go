@@ -1033,6 +1033,9 @@ func (ta *TviewApp) splitView(direction int) {
 		return // Already in split mode
 	}
 
+	// Stop global auto-refresh first
+	ta.stopAutoRefresh()
+
 	ta.splitMode = true
 	ta.splitDirection = direction
 
@@ -1045,6 +1048,9 @@ func (ta *TviewApp) splitView(direction int) {
 	// Create secondary pane for menu
 	ta.secondaryPane = NewCommentPane("secondary")
 	ta.secondaryPane.showingMenu = true
+
+	// Start auto-refresh for primary pane
+	ta.startAutoRefreshForPane(ta.primaryPane)
 
 	// Set secondary as active (where menu will appear)
 	ta.activePaneID = "secondary"
@@ -1131,6 +1137,7 @@ func (ta *TviewApp) buildPaneContent(pane *CommentPane) *tview.Flex {
 		// Show comments
 		pane.view.Clear()
 		ta.renderCommentsToView(pane.view, pane.comments, pane.commentFilter)
+		pane.view.ScrollToEnd()
 		flex.AddItem(pane.view, 0, 1, true)
 	}
 
