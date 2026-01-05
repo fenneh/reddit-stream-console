@@ -10,15 +10,15 @@ import (
 
 // CommentPane represents a single pane that can display comments or menu
 type CommentPane struct {
-	id            string
-	view          *tview.TextView
-	filterInput   *tview.InputField
-	thread        *reddit.Thread
-	comments      []reddit.Comment
-	commentFilter string
-	filterActive  bool
+	id             string
+	view           *tview.TextView
+	filterInput    *tview.InputField
+	thread         *reddit.Thread
+	comments       []reddit.Comment
+	commentFilter  string
+	filterActive   bool
 	refreshEnabled bool
-	stopRefresh   chan struct{}
+	stopRefresh    chan struct{}
 
 	// State tracking for what's displayed in this pane
 	showingMenu    bool
