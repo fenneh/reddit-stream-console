@@ -33,6 +33,12 @@ func init() {
 	tview.Borders.TopRightFocus = '┐'
 	tview.Borders.BottomLeftFocus = '└'
 	tview.Borders.BottomRightFocus = '┘'
+
+	// Inherit the terminal's real background everywhere by default,
+	// instead of tview's hardcoded ColorBlack/ColorBlue/ColorGreen.
+	tview.Styles.PrimitiveBackgroundColor = tcell.ColorDefault
+	tview.Styles.ContrastBackgroundColor = tcell.ColorDefault
+	tview.Styles.MoreContrastBackgroundColor = tcell.ColorDefault
 }
 
 type TviewApp struct {
