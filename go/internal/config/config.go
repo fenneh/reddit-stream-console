@@ -142,6 +142,24 @@ func LoadAppConfig(path string) (AppConfig, error) {
 	return cfg, nil
 }
 
+// ResolveConfigPath returns the absolute path of the first matching config
+// file found across the search paths, or empty string if none exist.
+func ResolveConfigPath(name string) string {
+	for _, dir := range configSearchPaths() {
+		candidate := filepath.Join(dir, name)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+
+// SearchPaths returns the directories that are searched for config files,
+// in priority order.
+func SearchPaths() []string {
+	return configSearchPaths()
+}
+
 // configSearchPaths returns the list of directories to search for config files.
 // Order: home dir, next to exe, 1 up from exe, 2 up from exe
 func configSearchPaths() []string {
