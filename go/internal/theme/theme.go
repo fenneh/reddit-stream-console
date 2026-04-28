@@ -108,8 +108,8 @@ func catppuccinMocha() Theme {
 		Border:         hex("#cba6f7"), // Mauve
 		InactiveBorder: hex("#313244"),
 		Primary:        hex("#cdd6f4"), // Text
-		Accent:         hex("#fab387"), // Peach
-		Secondary:      hex("#a6e3a1"), // Green
+		Accent:         hex("#cba6f7"), // Mauve (selected)
+		Secondary:      hex("#b4befe"), // Lavender (unselected, score)
 		Muted:          hex("#a6adc8"), // Subtext0
 		Subtle:         hex("#6c7086"), // Overlay0
 		InputBg:        hex("#313244"),
@@ -121,12 +121,12 @@ func catppuccinMacchiato() Theme {
 	return Theme{
 		Name:           "catppuccin-macchiato",
 		HeaderBg:       hex("#363a4f"),
-		HeaderFg:       hex("#c6a0f6"),
+		HeaderFg:       hex("#c6a0f6"), // Mauve
 		Border:         hex("#c6a0f6"),
 		InactiveBorder: hex("#363a4f"),
 		Primary:        hex("#cad3f5"),
-		Accent:         hex("#f5a97f"),
-		Secondary:      hex("#a6da95"),
+		Accent:         hex("#c6a0f6"), // Mauve
+		Secondary:      hex("#b7bdf8"), // Lavender
 		Muted:          hex("#a5adcb"),
 		Subtle:         hex("#6e738d"),
 		InputBg:        hex("#363a4f"),
@@ -138,12 +138,12 @@ func catppuccinFrappe() Theme {
 	return Theme{
 		Name:           "catppuccin-frappe",
 		HeaderBg:       hex("#414559"),
-		HeaderFg:       hex("#ca9ee6"),
+		HeaderFg:       hex("#ca9ee6"), // Mauve
 		Border:         hex("#ca9ee6"),
 		InactiveBorder: hex("#414559"),
 		Primary:        hex("#c6d0f5"),
-		Accent:         hex("#ef9f76"),
-		Secondary:      hex("#a6d189"),
+		Accent:         hex("#ca9ee6"), // Mauve
+		Secondary:      hex("#babbf1"), // Lavender
 		Muted:          hex("#a5adce"),
 		Subtle:         hex("#737994"),
 		InputBg:        hex("#414559"),
@@ -158,9 +158,9 @@ func catppuccinLatte() Theme {
 		HeaderFg:       hex("#8839ef"), // Mauve
 		Border:         hex("#8839ef"),
 		InactiveBorder: hex("#ccd0da"),
-		Primary:        hex("#4c4f69"),
-		Accent:         hex("#fe640b"),
-		Secondary:      hex("#40a02b"),
+		Primary:        hex("#4c4f69"), // Text dark
+		Accent:         hex("#8839ef"), // Mauve
+		Secondary:      hex("#7287fd"), // Lavender
 		Muted:          hex("#6c6f85"),
 		Subtle:         hex("#9ca0b0"),
 		InputBg:        hex("#ccd0da"),
@@ -177,7 +177,7 @@ func dracula() Theme {
 		InactiveBorder: hex("#44475a"),
 		Primary:        hex("#f8f8f2"), // Foreground
 		Accent:         hex("#ff79c6"), // Pink
-		Secondary:      hex("#50fa7b"), // Green
+		Secondary:      hex("#bd93f9"), // Purple
 		Muted:          hex("#6272a4"), // Comment
 		Subtle:         hex("#44475a"),
 		InputBg:        hex("#44475a"),
@@ -193,8 +193,8 @@ func nord() Theme {
 		Border:         hex("#88c0d0"),
 		InactiveBorder: hex("#3b4252"),
 		Primary:        hex("#eceff4"),
-		Accent:         hex("#d08770"), // Aurora orange
-		Secondary:      hex("#a3be8c"), // Aurora green
+		Accent:         hex("#88c0d0"), // Frost
+		Secondary:      hex("#81a1c1"), // Frost (deeper)
 		Muted:          hex("#d8dee9"),
 		Subtle:         hex("#4c566a"),
 		InputBg:        hex("#3b4252"),
@@ -210,8 +210,8 @@ func gruvboxDark() Theme {
 		Border:         hex("#83a598"), // bright aqua
 		InactiveBorder: hex("#3c3836"),
 		Primary:        hex("#ebdbb2"),
-		Accent:         hex("#fe8019"), // bright orange
-		Secondary:      hex("#b8bb26"), // bright green
+		Accent:         hex("#fabd2f"), // bright yellow
+		Secondary:      hex("#fe8019"), // bright orange
 		Muted:          hex("#a89984"),
 		Subtle:         hex("#7c6f64"),
 		InputBg:        hex("#3c3836"),
@@ -227,8 +227,8 @@ func tokyoNight() Theme {
 		Border:         hex("#7aa2f7"),
 		InactiveBorder: hex("#292e42"),
 		Primary:        hex("#c0caf5"),
-		Accent:         hex("#ff9e64"), // orange
-		Secondary:      hex("#9ece6a"), // green
+		Accent:         hex("#7aa2f7"), // blue
+		Secondary:      hex("#7dcfff"), // cyan
 		Muted:          hex("#a9b1d6"),
 		Subtle:         hex("#565f89"),
 		InputBg:        hex("#292e42"),
