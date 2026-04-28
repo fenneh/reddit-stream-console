@@ -55,6 +55,11 @@ type TviewApp struct {
 	statusBar    *tview.TextView
 	mainFlex     *tview.Flex
 
+	// Wrapping flexes whose borders need re-theming on theme change
+	menuFlex     *tview.Flex
+	threadFlex   *tview.Flex
+	urlInnerFlex *tview.Flex
+
 	client        *reddit.Client
 	menuItems     []config.MenuItem
 	threadsData   []reddit.Thread
@@ -62,7 +67,8 @@ type TviewApp struct {
 	currentThread *reddit.Thread
 	currentMenu   *config.MenuItem
 
-	theme theme.Theme
+	theme         theme.Theme
+	startupNotice string // shown briefly in the status bar at launch
 
 	filterActive   bool
 	commentFilter  string
@@ -91,6 +97,12 @@ func NewTviewApp(menuItems []config.MenuItem, client *reddit.Client, t theme.The
 
 	ta.setupUI()
 	return ta
+}
+
+// SetStartupNotice queues a message to be shown in the status bar on first
+// render, e.g. a warning about an unknown theme name in the config.
+func (ta *TviewApp) SetStartupNotice(msg string) {
+	ta.startupNotice = msg
 }
 
 func (ta *TviewApp) setupUI() {
@@ -171,7 +183,6 @@ func (ta *TviewApp) setupUI() {
 }
 
 func (ta *TviewApp) buildMenuPage() {
-	// Wrap menu in a flex for vertical centering
 	menuFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(nil, 0, 1, false).
 		AddItem(ta.menuView, 0, 2, true).
@@ -179,6 +190,7 @@ func (ta *TviewApp) buildMenuPage() {
 	menuFlex.SetBackgroundColor(tcell.ColorDefault)
 	menuFlex.SetBorder(true)
 	menuFlex.SetBorderColor(ta.theme.Border.TCell)
+	ta.menuFlex = menuFlex
 	ta.pages.AddPage("menu", menuFlex, true, false)
 }
 
@@ -253,6 +265,7 @@ func (ta *TviewApp) buildThreadListPage() {
 	threadFlex.SetBackgroundColor(tcell.ColorDefault)
 	threadFlex.SetBorder(true)
 	threadFlex.SetBorderColor(ta.theme.Border.TCell)
+	ta.threadFlex = threadFlex
 	ta.pages.AddPage("threads", threadFlex, true, false)
 }
 
@@ -349,6 +362,7 @@ func (ta *TviewApp) buildURLInputPage() {
 	innerFlex.SetBackgroundColor(tcell.ColorDefault)
 	innerFlex.SetBorder(true)
 	innerFlex.SetBorderColor(ta.theme.Border.TCell)
+	ta.urlInnerFlex = innerFlex
 
 	// Wrap in flex for centering with some margin
 	urlFlex := tview.NewFlex().SetDirection(tview.FlexRow).
@@ -540,6 +554,9 @@ func (ta *TviewApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 				ta.splitView(tview.FlexColumn) // Vertical split (side by side)
 				return nil
 			}
+		case 't', 'T':
+			ta.cycleTheme()
+			return nil
 		}
 	case tcell.KeyTab:
 		if pageName == "comments" && ta.splitMode {
@@ -552,7 +569,7 @@ func (ta *TviewApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 }
 
 func (ta *TviewApp) showMenu() {
-	ta.updateHeaderWithUpdate("Reddit Stream Console", "Q:Quit  Enter:Select")
+	ta.updateHeaderWithUpdate("Reddit Stream Console", "Q:Quit  Enter:Select  T:Theme")
 	ta.renderMenu()
 	ta.pages.SwitchToPage("menu")
 	ta.app.SetFocus(ta.menuView)
@@ -584,7 +601,7 @@ func (ta *TviewApp) showThreads() {
 	if ta.currentMenu != nil {
 		title = ta.currentMenu.Title
 	}
-	ta.updateHeader(title, "Q:Quit  Enter:Open  Esc:Back")
+	ta.updateHeader(title, "Q:Quit  Enter:Open  T:Theme  Esc:Back")
 	ta.renderThreadList()
 	ta.pages.SwitchToPage("threads")
 	ta.app.SetFocus(ta.threadView)
@@ -595,7 +612,7 @@ func (ta *TviewApp) showComments() {
 	if ta.currentThread != nil {
 		title = ta.currentThread.Title
 	}
-	ta.updateHeader(title, "Q:Quit  R:Refresh  /:Filter  H/V:Split  Esc:Back")
+	ta.updateHeader(title, "Q:Quit  R:Refresh  /:Filter  H/V:Split  T:Theme  Esc:Back")
 	ta.pages.SwitchToPage("comments")
 	ta.app.SetFocus(ta.commentsView)
 }
@@ -794,7 +811,7 @@ func (ta *TviewApp) loadComments() {
 			}
 			if title != "" {
 				ta.currentThread.Title = title
-				ta.updateHeader(title, "Q:Quit  R:Refresh  /:Filter  H/V:Split  Esc:Back")
+				ta.updateHeader(title, "Q:Quit  R:Refresh  /:Filter  H/V:Split  T:Theme  Esc:Back")
 			}
 			// Sort comments by time (oldest first, newest at bottom)
 			sort.Slice(comments, func(i, j int) bool {
@@ -937,10 +954,83 @@ func (ta *TviewApp) Run() error {
 	// Set terminal title
 	fmt.Print("\033]0;reddit-stream-console\007")
 
+	if ta.startupNotice != "" {
+		ta.setStatus(ta.startupNotice)
+	}
+
 	// Check for updates in background
 	go ta.checkForUpdates()
 
 	return ta.app.Run()
+}
+
+// applyTheme re-applies static colours from t to every primitive that
+// holds them as state, then re-renders dynamic views so their inline
+// markup picks up the new palette.
+func (ta *TviewApp) applyTheme(t theme.Theme) {
+	ta.theme = t
+	if ta.primaryPane != nil {
+		ta.primaryPane.theme = t
+	}
+	if ta.secondaryPane != nil {
+		ta.secondaryPane.theme = t
+	}
+
+	ta.header.SetBackgroundColor(t.HeaderBg.TCell)
+	ta.header.SetTextColor(t.HeaderFg.TCell)
+	ta.statusBar.SetBackgroundColor(t.HeaderBg.TCell)
+	ta.statusBar.SetTextColor(t.HeaderFg.TCell)
+
+	ta.commentsView.SetBorderColor(t.Border.TCell)
+	if ta.menuFlex != nil {
+		ta.menuFlex.SetBorderColor(t.Border.TCell)
+	}
+	if ta.threadFlex != nil {
+		ta.threadFlex.SetBorderColor(t.Border.TCell)
+	}
+	if ta.urlInnerFlex != nil {
+		ta.urlInnerFlex.SetBorderColor(t.Border.TCell)
+	}
+
+	ta.urlInput.SetFieldBackgroundColor(t.InputBg.TCell)
+	ta.urlInput.SetFieldTextColor(t.Primary.TCell)
+	ta.urlInput.SetLabelColor(t.Accent.TCell)
+	ta.urlInput.SetPlaceholderTextColor(t.Placeholder.TCell)
+	ta.filterInput.SetFieldTextColor(t.Primary.TCell)
+	ta.filterInput.SetLabelColor(t.Accent.TCell)
+
+	ta.renderMenu()
+	ta.renderThreadList()
+	if ta.currentThread != nil {
+		ta.renderComments()
+	}
+	if ta.splitMode {
+		ta.rebuildSplitLayout()
+	}
+}
+
+// cycleTheme advances to the next built-in theme, applies it live, and
+// persists the choice to app_config.json so it survives restarts.
+func (ta *TviewApp) cycleTheme() {
+	names := theme.Names()
+	if len(names) == 0 {
+		return
+	}
+	idx := 0
+	for i, n := range names {
+		if n == ta.theme.Name {
+			idx = (i + 1) % len(names)
+			break
+		}
+	}
+	next := names[idx]
+	ta.applyTheme(theme.Get(next))
+
+	if path, err := config.SaveTheme(next); err != nil {
+		ta.setStatus(fmt.Sprintf("Theme: %s (save failed: %v)", next, err))
+	} else {
+		ta.setStatus(fmt.Sprintf("Theme: %s — saved to %s", next, path))
+	}
 }
 
 // checkForUpdates checks GitHub for a newer release

@@ -42,7 +42,13 @@ func main() {
 		userAgent = "RedditStreamConsole/1.0"
 	}
 
-	resolvedTheme := theme.Get(appConfig.Theme)
+	resolvedTheme, themeOK := theme.Lookup(appConfig.Theme)
+	var themeWarning string
+	if !themeOK {
+		themeWarning = fmt.Sprintf("Unknown theme %q — using %q. Available: %s",
+			appConfig.Theme, resolvedTheme.Name, strings.Join(theme.Names(), ", "))
+		fmt.Fprintln(os.Stderr, themeWarning)
+	}
 
 	if diag {
 		printDiagnostics(appConfig, appConfigErr, resolvedTheme)
@@ -51,6 +57,9 @@ func main() {
 
 	client := reddit.NewClient(userAgent)
 	tviewApp := app.NewTviewApp(menuConfig.MenuItems, client, resolvedTheme)
+	if themeWarning != "" {
+		tviewApp.SetStartupNotice(themeWarning)
+	}
 
 	if err := tviewApp.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start app: %v\n", err)

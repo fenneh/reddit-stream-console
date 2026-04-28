@@ -38,6 +38,9 @@ go build -o bin/reddit-stream-console ./cmd/reddit-stream-console
 | `Enter` | Select |
 | `/` | Filter comments |
 | `r` | Refresh comments |
+| `t` | Cycle theme (saved to `app_config.json`) |
+| `h` / `v` | Split view (horizontal / vertical) |
+| `Tab` | Switch active pane (split mode) |
 | `Esc` | Go back |
 | `q` | Quit |
 

@@ -160,6 +160,38 @@ func SearchPaths() []string {
 	return configSearchPaths()
 }
 
+// SaveTheme persists the theme selection to app_config.json. If an
+// existing file is found via ResolveConfigPath, it is read, the theme
+// field updated, and written back (preserving any other fields). If
+// no file exists yet, one is created at ~/.reddit-stream-console/
+// config/app_config.json. Returns the path written to.
+func SaveTheme(name string) (string, error) {
+	target := ResolveConfigPath("config/app_config.json")
+	if target == "" {
+		home := getHomeDir()
+		if home == "" {
+			return "", fmt.Errorf("could not determine home directory")
+		}
+		dir := filepath.Join(home, ".reddit-stream-console", "config")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return "", err
+		}
+		target = filepath.Join(dir, "app_config.json")
+	}
+
+	raw := map[string]any{}
+	if data, err := os.ReadFile(target); err == nil {
+		_ = json.Unmarshal(data, &raw)
+	}
+	raw["theme"] = name
+
+	data, err := json.MarshalIndent(raw, "", "    ")
+	if err != nil {
+		return "", err
+	}
+	return target, os.WriteFile(target, append(data, '\n'), 0o644)
+}
+
 // configSearchPaths returns the list of directories to search for config files.
 // Order: home dir, next to exe, 1 up from exe, 2 up from exe
 func configSearchPaths() []string {
