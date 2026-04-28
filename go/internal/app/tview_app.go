@@ -13,18 +13,11 @@ import (
 
 	"github.com/fenneh/reddit-stream-console/internal/config"
 	"github.com/fenneh/reddit-stream-console/internal/reddit"
+	"github.com/fenneh/reddit-stream-console/internal/theme"
 )
 
 // Version is set at build time via ldflags
 var Version = "dev"
-
-// Colors matching the original Python app
-var (
-	tealTview       = tcell.NewRGBColor(101, 146, 135)
-	warmCreamTview  = tcell.NewRGBColor(255, 230, 169)
-	warmOrangeTview = tcell.NewRGBColor(222, 170, 121)
-	sageGreenTview  = tcell.NewRGBColor(177, 194, 158)
-)
 
 func init() {
 	// Use single-line borders globally (both normal and focused)
@@ -40,6 +33,12 @@ func init() {
 	tview.Borders.TopRightFocus = '┐'
 	tview.Borders.BottomLeftFocus = '└'
 	tview.Borders.BottomRightFocus = '┘'
+
+	// Inherit the terminal's real background everywhere by default,
+	// instead of tview's hardcoded ColorBlack/ColorBlue/ColorGreen.
+	tview.Styles.PrimitiveBackgroundColor = tcell.ColorDefault
+	tview.Styles.ContrastBackgroundColor = tcell.ColorDefault
+	tview.Styles.MoreContrastBackgroundColor = tcell.ColorDefault
 }
 
 type TviewApp struct {
@@ -63,6 +62,8 @@ type TviewApp struct {
 	currentThread *reddit.Thread
 	currentMenu   *config.MenuItem
 
+	theme theme.Theme
+
 	filterActive   bool
 	commentFilter  string
 	refreshEnabled bool
@@ -78,12 +79,13 @@ type TviewApp struct {
 	splitDirection int // tview.FlexRow (horizontal) or FlexColumn (vertical)
 }
 
-func NewTviewApp(menuItems []config.MenuItem, client *reddit.Client) *TviewApp {
+func NewTviewApp(menuItems []config.MenuItem, client *reddit.Client, t theme.Theme) *TviewApp {
 	ta := &TviewApp{
 		app:         tview.NewApplication(),
 		pages:       tview.NewPages(),
 		menuItems:   menuItems,
 		client:      client,
+		theme:       t,
 		stopRefresh: make(chan struct{}),
 	}
 
@@ -96,8 +98,8 @@ func (ta *TviewApp) setupUI() {
 	ta.header = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft)
-	ta.header.SetBackgroundColor(tealTview)
-	ta.header.SetTextColor(warmCreamTview)
+	ta.header.SetBackgroundColor(ta.theme.HeaderBg.TCell)
+	ta.header.SetTextColor(ta.theme.HeaderFg.TCell)
 
 	// Custom menu using TextView for full control
 	ta.menuView = tview.NewTextView().
@@ -126,28 +128,28 @@ func (ta *TviewApp) setupUI() {
 		SetWordWrap(true)
 	ta.commentsView.SetBackgroundColor(tcell.ColorDefault)
 	ta.commentsView.SetBorder(true)
-	ta.commentsView.SetBorderColor(tealTview)
+	ta.commentsView.SetBorderColor(ta.theme.Border.TCell)
 	ta.commentsView.SetBorderPadding(0, 0, 1, 1)
 
 	// URL input
 	ta.urlInput = tview.NewInputField().
 		SetLabel("URL: ").
 		SetFieldBackgroundColor(tcell.ColorDefault).
-		SetFieldTextColor(warmCreamTview).
-		SetLabelColor(warmCreamTview)
+		SetFieldTextColor(ta.theme.Primary.TCell).
+		SetLabelColor(ta.theme.Primary.TCell)
 
 	// Filter input
 	ta.filterInput = tview.NewInputField().
 		SetLabel("/ ").
 		SetFieldBackgroundColor(tcell.ColorDefault).
-		SetFieldTextColor(warmCreamTview).
-		SetLabelColor(warmOrangeTview)
+		SetFieldTextColor(ta.theme.Primary.TCell).
+		SetLabelColor(ta.theme.Accent.TCell)
 
 	// Status bar
 	ta.statusBar = tview.NewTextView().
 		SetDynamicColors(true)
-	ta.statusBar.SetBackgroundColor(tealTview)
-	ta.statusBar.SetTextColor(warmCreamTview)
+	ta.statusBar.SetBackgroundColor(ta.theme.HeaderBg.TCell)
+	ta.statusBar.SetTextColor(ta.theme.HeaderFg.TCell)
 
 	// Build pages
 	ta.buildMenuPage()
@@ -176,7 +178,7 @@ func (ta *TviewApp) buildMenuPage() {
 		AddItem(nil, 0, 1, false)
 	menuFlex.SetBackgroundColor(tcell.ColorDefault)
 	menuFlex.SetBorder(true)
-	menuFlex.SetBorderColor(tealTview)
+	menuFlex.SetBorderColor(ta.theme.Border.TCell)
 	ta.pages.AddPage("menu", menuFlex, true, false)
 }
 
@@ -193,16 +195,14 @@ func (ta *TviewApp) renderMenu() {
 		}
 
 		if i == ta.menuIndex {
-			// Selected: orange with arrow
-			lines = append(lines, fmt.Sprintf("[#DEAA79::b]→ %s[-:-:-]", item.Title))
+			lines = append(lines, fmt.Sprintf("[%s::b]→ %s[-:-:-]", ta.theme.Accent.Hex, item.Title))
 			if item.Description != "" {
-				lines = append(lines, fmt.Sprintf("[#888888]  %s[-]", item.Description))
+				lines = append(lines, fmt.Sprintf("[%s]  %s[-]", ta.theme.Muted.Hex, item.Description))
 			}
 		} else {
-			// Normal: sage green
-			lines = append(lines, fmt.Sprintf("[#B1C29E]  %s[-]", item.Title))
+			lines = append(lines, fmt.Sprintf("[%s]  %s[-]", ta.theme.Secondary.Hex, item.Title))
 			if item.Description != "" {
-				lines = append(lines, fmt.Sprintf("[#666666]  %s[-]", item.Description))
+				lines = append(lines, fmt.Sprintf("[%s]  %s[-]", ta.theme.Subtle.Hex, item.Description))
 			}
 		}
 	}
@@ -252,7 +252,7 @@ func (ta *TviewApp) buildThreadListPage() {
 		AddItem(nil, 0, 1, false)
 	threadFlex.SetBackgroundColor(tcell.ColorDefault)
 	threadFlex.SetBorder(true)
-	threadFlex.SetBorderColor(tealTview)
+	threadFlex.SetBorderColor(ta.theme.Border.TCell)
 	ta.pages.AddPage("threads", threadFlex, true, false)
 }
 
@@ -260,18 +260,16 @@ func (ta *TviewApp) renderThreadList() {
 	ta.threadView.Clear()
 
 	if len(ta.threadsData) == 0 {
-		fmt.Fprint(ta.threadView, "[#888888]No threads found[-]")
+		fmt.Fprintf(ta.threadView, "[%s]No threads found[-]", ta.theme.Muted.Hex)
 		return
 	}
 
 	var lines []string
 	for i, thread := range ta.threadsData {
 		if i == ta.threadIndex {
-			// Selected: orange with arrow
-			lines = append(lines, fmt.Sprintf("[#DEAA79::b]→ %s[-:-:-]", thread.Title))
+			lines = append(lines, fmt.Sprintf("[%s::b]→ %s[-:-:-]", ta.theme.Accent.Hex, thread.Title))
 		} else {
-			// Normal: sage green
-			lines = append(lines, fmt.Sprintf("[#B1C29E]  %s[-]", thread.Title))
+			lines = append(lines, fmt.Sprintf("[%s]  %s[-]", ta.theme.Secondary.Hex, thread.Title))
 		}
 	}
 
@@ -315,23 +313,23 @@ func (ta *TviewApp) buildURLInputPage() {
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
 	label.SetBackgroundColor(tcell.ColorDefault)
-	fmt.Fprint(label, "[#FFE6A9::b]Enter Reddit Thread URL[-:-:-]")
+	fmt.Fprintf(label, "[%s::b]Enter Reddit Thread URL[-:-:-]", ta.theme.Primary.Hex)
 
 	// Style the input field
 	ta.urlInput.SetBackgroundColor(tcell.ColorDefault)
-	ta.urlInput.SetFieldBackgroundColor(tcell.NewRGBColor(40, 40, 40))
-	ta.urlInput.SetFieldTextColor(warmCreamTview)
-	ta.urlInput.SetLabelColor(warmOrangeTview)
+	ta.urlInput.SetFieldBackgroundColor(ta.theme.InputBg.TCell)
+	ta.urlInput.SetFieldTextColor(ta.theme.Primary.TCell)
+	ta.urlInput.SetLabelColor(ta.theme.Accent.TCell)
 	ta.urlInput.SetLabel("→ ")
 	ta.urlInput.SetPlaceholder("https://reddit.com/r/...")
-	ta.urlInput.SetPlaceholderTextColor(tcell.NewRGBColor(100, 100, 100))
+	ta.urlInput.SetPlaceholderTextColor(ta.theme.Placeholder.TCell)
 
 	// Hint text
 	hint := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
 	hint.SetBackgroundColor(tcell.ColorDefault)
-	fmt.Fprint(hint, "[#888888]Press [#DEAA79]Enter[-] to submit  •  [#DEAA79]Esc[-] to go back[-]")
+	fmt.Fprintf(hint, "[%s]Press [%s]Enter[-] to submit  •  [%s]Esc[-] to go back[-]", ta.theme.Muted.Hex, ta.theme.Accent.Hex, ta.theme.Accent.Hex)
 
 	// Center everything
 	inputBox := tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -350,7 +348,7 @@ func (ta *TviewApp) buildURLInputPage() {
 		AddItem(nil, 0, 1, false)
 	innerFlex.SetBackgroundColor(tcell.ColorDefault)
 	innerFlex.SetBorder(true)
-	innerFlex.SetBorderColor(tealTview)
+	innerFlex.SetBorderColor(ta.theme.Border.TCell)
 
 	// Wrap in flex for centering with some margin
 	urlFlex := tview.NewFlex().SetDirection(tview.FlexRow).
@@ -565,20 +563,17 @@ func (ta *TviewApp) updateHeaderWithUpdate(title, keys string) {
 	fmt.Fprintf(ta.header, " [::b]%s", title)
 
 	ta.statusBar.Clear()
-	leftPart := formatKeys(keys)
+	leftPart := ta.formatKeys(keys)
 
 	if ta.latestVersion != "" {
-		// Get terminal width for right-alignment
 		_, _, width, _ := ta.statusBar.GetInnerRect()
 		updateMsg := fmt.Sprintf("Update available: %s", ta.latestVersion)
-		// Calculate padding: width - left content - update msg - margins
-		leftLen := len(strings.ReplaceAll(leftPart, "[#DEAA79]", ""))
-		leftLen = len(strings.ReplaceAll(keys, ":", " ")) + 10 // rough estimate
+		leftLen := len(strings.ReplaceAll(keys, ":", " ")) + 10 // rough estimate
 		padding := width - leftLen - len(updateMsg) - 4
 		if padding < 2 {
 			padding = 2
 		}
-		fmt.Fprintf(ta.statusBar, " %s%s[#B1C29E]%s[-]", leftPart, strings.Repeat(" ", padding), updateMsg)
+		fmt.Fprintf(ta.statusBar, " %s%s[%s]%s[-]", leftPart, strings.Repeat(" ", padding), ta.theme.Secondary.Hex, updateMsg)
 	} else {
 		fmt.Fprintf(ta.statusBar, " %s", leftPart)
 	}
@@ -656,7 +651,7 @@ func (ta *TviewApp) updateHeader(title, keys string) {
 	fmt.Fprintf(ta.header, " [::b]%s", title)
 
 	ta.statusBar.Clear()
-	fmt.Fprintf(ta.statusBar, " %s", formatKeys(keys))
+	fmt.Fprintf(ta.statusBar, " %s", ta.formatKeys(keys))
 }
 
 func (ta *TviewApp) setStatus(msg string) {
@@ -665,15 +660,14 @@ func (ta *TviewApp) setStatus(msg string) {
 }
 
 // formatKeys formats "Q:Quit  R:Refresh" into styled "[Q] Quit  [R] Refresh"
-func formatKeys(keys string) string {
+func (ta *TviewApp) formatKeys(keys string) string {
 	parts := strings.Fields(keys)
 	var formatted []string
 	for _, part := range parts {
 		if idx := strings.Index(part, ":"); idx != -1 {
 			key := part[:idx]
 			desc := part[idx+1:]
-			// Orange key in brackets, cream description
-			formatted = append(formatted, fmt.Sprintf("[#DEAA79][[#FFE6A9]%s[#DEAA79]][-] %s", key, desc))
+			formatted = append(formatted, fmt.Sprintf("[%s][[%s]%s[%s]][-] %s", ta.theme.Accent.Hex, ta.theme.Primary.Hex, key, ta.theme.Accent.Hex, desc))
 		} else {
 			formatted = append(formatted, part)
 		}
@@ -869,12 +863,16 @@ func (ta *TviewApp) renderComments() {
 			indent := strings.Repeat("  ", depth)
 			arrow := ""
 			if depth > 0 {
-				arrow = "[#DEAA79]→[-] "
+				arrow = fmt.Sprintf("[%s]→[-] ", ta.theme.Accent.Hex)
 			}
 
-			// Header: author • score • time
-			header := fmt.Sprintf("%s%s[#FFE6A9::b]%s[-:-:-] [#666666]•[-] [#B1C29E]%d points[-] [#666666]•[-] [#659287]%s[-]",
-				indent, arrow, node.comment.Author, node.comment.Score, node.comment.FormattedTime)
+			header := fmt.Sprintf("%s%s[%s::b]%s[-:-:-] [%s]•[-] [%s]%d points[-] [%s]•[-] [%s]%s[-]",
+				indent, arrow,
+				ta.theme.Primary.Hex, node.comment.Author,
+				ta.theme.Subtle.Hex,
+				ta.theme.Secondary.Hex, node.comment.Score,
+				ta.theme.Subtle.Hex,
+				ta.theme.Border.Hex, node.comment.FormattedTime)
 			fmt.Fprintln(ta.commentsView, header)
 
 			// Body with proper wrapping
@@ -1040,13 +1038,13 @@ func (ta *TviewApp) splitView(direction int) {
 	ta.splitDirection = direction
 
 	// Create primary pane from current state
-	ta.primaryPane = NewCommentPane("primary")
+	ta.primaryPane = NewCommentPane("primary", ta.theme)
 	ta.primaryPane.thread = ta.currentThread
 	ta.primaryPane.comments = ta.comments
 	ta.primaryPane.commentFilter = ta.commentFilter
 
 	// Create secondary pane for menu
-	ta.secondaryPane = NewCommentPane("secondary")
+	ta.secondaryPane = NewCommentPane("secondary", ta.theme)
 	ta.secondaryPane.showingMenu = true
 
 	// Start auto-refresh for primary pane
@@ -1088,12 +1086,11 @@ func (ta *TviewApp) buildPaneContent(pane *CommentPane) *tview.Flex {
 		menuView.SetBackgroundColor(tcell.ColorDefault)
 		menuView.SetBorder(true)
 		if pane.id == ta.activePaneID {
-			menuView.SetBorderColor(tealTview)
+			menuView.SetBorderColor(ta.theme.Border.TCell)
 		} else {
-			menuView.SetBorderColor(tcell.NewRGBColor(80, 80, 80))
+			menuView.SetBorderColor(ta.theme.InactiveBorder.TCell)
 		}
 
-		// Render menu items
 		var lines []string
 		lines = append(lines, "")
 		for i, item := range ta.menuItems {
@@ -1102,15 +1099,14 @@ func (ta *TviewApp) buildPaneContent(pane *CommentPane) *tview.Flex {
 				continue
 			}
 			if i == pane.menuIndex {
-				lines = append(lines, fmt.Sprintf("[#DEAA79::b]→ %s[-:-:-]", item.Title))
+				lines = append(lines, fmt.Sprintf("[%s::b]→ %s[-:-:-]", ta.theme.Accent.Hex, item.Title))
 			} else {
-				lines = append(lines, fmt.Sprintf("[#B1C29E]  %s[-]", item.Title))
+				lines = append(lines, fmt.Sprintf("[%s]  %s[-]", ta.theme.Secondary.Hex, item.Title))
 			}
 		}
 		fmt.Fprint(menuView, strings.Join(lines, "\n"))
 		flex.AddItem(menuView, 0, 1, true)
 	} else if pane.showingThreads {
-		// Show threads in this pane
 		threadView := tview.NewTextView().
 			SetDynamicColors(true).
 			SetScrollable(true).
@@ -1118,17 +1114,17 @@ func (ta *TviewApp) buildPaneContent(pane *CommentPane) *tview.Flex {
 		threadView.SetBackgroundColor(tcell.ColorDefault)
 		threadView.SetBorder(true)
 		if pane.id == ta.activePaneID {
-			threadView.SetBorderColor(tealTview)
+			threadView.SetBorderColor(ta.theme.Border.TCell)
 		} else {
-			threadView.SetBorderColor(tcell.NewRGBColor(80, 80, 80))
+			threadView.SetBorderColor(ta.theme.InactiveBorder.TCell)
 		}
 
 		var lines []string
 		for i, thread := range pane.threadsData {
 			if i == pane.threadIndex {
-				lines = append(lines, fmt.Sprintf("[#DEAA79::b]→ %s[-:-:-]", thread.Title))
+				lines = append(lines, fmt.Sprintf("[%s::b]→ %s[-:-:-]", ta.theme.Accent.Hex, thread.Title))
 			} else {
-				lines = append(lines, fmt.Sprintf("[#B1C29E]  %s[-]", thread.Title))
+				lines = append(lines, fmt.Sprintf("[%s]  %s[-]", ta.theme.Secondary.Hex, thread.Title))
 			}
 		}
 		fmt.Fprint(threadView, strings.Join(lines, "\n"))
@@ -1171,11 +1167,16 @@ func (ta *TviewApp) renderCommentsToView(view *tview.TextView, comments []reddit
 			indent := strings.Repeat("  ", depth)
 			arrow := ""
 			if depth > 0 {
-				arrow = "[#DEAA79]→[-] "
+				arrow = fmt.Sprintf("[%s]→[-] ", ta.theme.Accent.Hex)
 			}
 
-			header := fmt.Sprintf("%s%s[#FFE6A9::b]%s[-:-:-] [#666666]•[-] [#B1C29E]%d points[-] [#666666]•[-] [#659287]%s[-]",
-				indent, arrow, node.comment.Author, node.comment.Score, node.comment.FormattedTime)
+			header := fmt.Sprintf("%s%s[%s::b]%s[-:-:-] [%s]•[-] [%s]%d points[-] [%s]•[-] [%s]%s[-]",
+				indent, arrow,
+				ta.theme.Primary.Hex, node.comment.Author,
+				ta.theme.Subtle.Hex,
+				ta.theme.Secondary.Hex, node.comment.Score,
+				ta.theme.Subtle.Hex,
+				ta.theme.Border.Hex, node.comment.FormattedTime)
 			fmt.Fprintln(view, header)
 
 			bodyIndent := indent
@@ -1247,7 +1248,7 @@ func (ta *TviewApp) updateSplitHeader() {
 
 	ta.statusBar.Clear()
 	keys := "Q:Quit  R:Refresh  /:Filter  Tab:Switch  Esc:Close"
-	fmt.Fprintf(ta.statusBar, " %s", formatKeys(keys))
+	fmt.Fprintf(ta.statusBar, " %s", ta.formatKeys(keys))
 }
 
 // getActivePane returns the currently active pane

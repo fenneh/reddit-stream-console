@@ -55,6 +55,28 @@ If no config file is found, built-in defaults are used.
 
 See `config/menu_config.json` for an example configuration.
 
+### Themes
+
+Set `theme` in `config/app_config.json` to one of the bundled palettes:
+
+```json
+{
+    "debug_logging": false,
+    "theme": "catppuccin-mocha"
+}
+```
+
+Available themes:
+
+- `default` (warm cream / sage / teal)
+- `catppuccin-mocha`, `catppuccin-macchiato`, `catppuccin-frappe`, `catppuccin-latte`
+- `dracula`
+- `nord`
+- `gruvbox-dark`
+- `tokyo-night`
+
+An empty or unknown name falls back to `default`.
+
 ## License
 
 MIT
