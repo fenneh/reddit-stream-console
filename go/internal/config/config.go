@@ -9,7 +9,8 @@ import (
 )
 
 type AppConfig struct {
-	DebugLogging bool `json:"debug_logging"`
+	DebugLogging bool   `json:"debug_logging"`
+	Theme        string `json:"theme"`
 }
 
 type MenuConfig struct {

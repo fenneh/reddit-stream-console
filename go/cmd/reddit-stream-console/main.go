@@ -8,6 +8,7 @@ import (
 	"github.com/fenneh/reddit-stream-console/internal/app"
 	"github.com/fenneh/reddit-stream-console/internal/config"
 	"github.com/fenneh/reddit-stream-console/internal/reddit"
+	"github.com/fenneh/reddit-stream-console/internal/theme"
 )
 
 func main() {
@@ -33,7 +34,7 @@ func main() {
 	}
 
 	client := reddit.NewClient(userAgent)
-	tviewApp := app.NewTviewApp(menuConfig.MenuItems, client)
+	tviewApp := app.NewTviewApp(menuConfig.MenuItems, client, theme.Get(appConfig.Theme))
 
 	if err := tviewApp.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start app: %v\n", err)

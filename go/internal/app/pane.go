@@ -6,6 +6,7 @@ import (
 
 	"github.com/fenneh/reddit-stream-console/internal/config"
 	"github.com/fenneh/reddit-stream-console/internal/reddit"
+	"github.com/fenneh/reddit-stream-console/internal/theme"
 )
 
 // CommentPane represents a single pane that can display comments or menu
@@ -20,6 +21,8 @@ type CommentPane struct {
 	refreshEnabled bool
 	stopRefresh    chan struct{}
 
+	theme theme.Theme
+
 	// State tracking for what's displayed in this pane
 	showingMenu    bool
 	showingThreads bool
@@ -30,9 +33,10 @@ type CommentPane struct {
 }
 
 // NewCommentPane creates a new comment pane with the given ID
-func NewCommentPane(id string) *CommentPane {
+func NewCommentPane(id string, t theme.Theme) *CommentPane {
 	pane := &CommentPane{
 		id:          id,
+		theme:       t,
 		stopRefresh: make(chan struct{}),
 	}
 
@@ -43,14 +47,14 @@ func NewCommentPane(id string) *CommentPane {
 		SetWordWrap(true)
 	pane.view.SetBackgroundColor(tcell.ColorDefault)
 	pane.view.SetBorder(true)
-	pane.view.SetBorderColor(tealTview)
+	pane.view.SetBorderColor(t.Border.TCell)
 	pane.view.SetBorderPadding(0, 0, 1, 1)
 
 	pane.filterInput = tview.NewInputField().
 		SetLabel("/ ").
 		SetFieldBackgroundColor(tcell.ColorDefault).
-		SetFieldTextColor(warmCreamTview).
-		SetLabelColor(warmOrangeTview)
+		SetFieldTextColor(t.Primary.TCell).
+		SetLabelColor(t.Accent.TCell)
 
 	return pane
 }
@@ -73,8 +77,8 @@ func (p *CommentPane) Clear() {
 // SetActive updates the pane's border to indicate active/inactive state
 func (p *CommentPane) SetActive(active bool) {
 	if active {
-		p.view.SetBorderColor(tealTview)
+		p.view.SetBorderColor(p.theme.Border.TCell)
 	} else {
-		p.view.SetBorderColor(tcell.NewRGBColor(80, 80, 80))
+		p.view.SetBorderColor(p.theme.InactiveBorder.TCell)
 	}
 }
