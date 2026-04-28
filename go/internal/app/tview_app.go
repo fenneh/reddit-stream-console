@@ -92,8 +92,8 @@ func (ta *TviewApp) setupUI() {
 	ta.header = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft)
-	ta.header.SetBackgroundColor(ta.theme.Border.TCell)
-	ta.header.SetTextColor(ta.theme.Primary.TCell)
+	ta.header.SetBackgroundColor(ta.theme.HeaderBg.TCell)
+	ta.header.SetTextColor(ta.theme.HeaderFg.TCell)
 
 	// Custom menu using TextView for full control
 	ta.menuView = tview.NewTextView().
@@ -142,8 +142,8 @@ func (ta *TviewApp) setupUI() {
 	// Status bar
 	ta.statusBar = tview.NewTextView().
 		SetDynamicColors(true)
-	ta.statusBar.SetBackgroundColor(ta.theme.Border.TCell)
-	ta.statusBar.SetTextColor(ta.theme.Primary.TCell)
+	ta.statusBar.SetBackgroundColor(ta.theme.HeaderBg.TCell)
+	ta.statusBar.SetTextColor(ta.theme.HeaderFg.TCell)
 
 	// Build pages
 	ta.buildMenuPage()

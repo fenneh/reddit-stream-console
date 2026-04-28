@@ -21,6 +21,9 @@ type Color struct {
 type Theme struct {
 	Name string
 
+	HeaderBg Color // header + status bar fill
+	HeaderFg Color // header + status bar text
+
 	Border         Color
 	InactiveBorder Color
 
@@ -83,6 +86,8 @@ func Names() []string {
 func defaultTheme() Theme {
 	return Theme{
 		Name:           "default",
+		HeaderBg:       hex("#659287"),
+		HeaderFg:       hex("#FFE6A9"),
 		Border:         hex("#659287"),
 		InactiveBorder: hex("#505050"),
 		Primary:        hex("#FFE6A9"),
@@ -98,21 +103,25 @@ func defaultTheme() Theme {
 func catppuccinMocha() Theme {
 	return Theme{
 		Name:           "catppuccin-mocha",
+		HeaderBg:       hex("#313244"), // Surface0
+		HeaderFg:       hex("#cba6f7"), // Mauve
 		Border:         hex("#cba6f7"), // Mauve
-		InactiveBorder: hex("#313244"), // Surface0
+		InactiveBorder: hex("#313244"),
 		Primary:        hex("#cdd6f4"), // Text
 		Accent:         hex("#fab387"), // Peach
 		Secondary:      hex("#a6e3a1"), // Green
 		Muted:          hex("#a6adc8"), // Subtext0
 		Subtle:         hex("#6c7086"), // Overlay0
-		InputBg:        hex("#313244"), // Surface0
-		Placeholder:    hex("#6c7086"), // Overlay0
+		InputBg:        hex("#313244"),
+		Placeholder:    hex("#6c7086"),
 	}
 }
 
 func catppuccinMacchiato() Theme {
 	return Theme{
 		Name:           "catppuccin-macchiato",
+		HeaderBg:       hex("#363a4f"),
+		HeaderFg:       hex("#c6a0f6"),
 		Border:         hex("#c6a0f6"),
 		InactiveBorder: hex("#363a4f"),
 		Primary:        hex("#cad3f5"),
@@ -128,6 +137,8 @@ func catppuccinMacchiato() Theme {
 func catppuccinFrappe() Theme {
 	return Theme{
 		Name:           "catppuccin-frappe",
+		HeaderBg:       hex("#414559"),
+		HeaderFg:       hex("#ca9ee6"),
 		Border:         hex("#ca9ee6"),
 		InactiveBorder: hex("#414559"),
 		Primary:        hex("#c6d0f5"),
@@ -143,6 +154,8 @@ func catppuccinFrappe() Theme {
 func catppuccinLatte() Theme {
 	return Theme{
 		Name:           "catppuccin-latte",
+		HeaderBg:       hex("#ccd0da"), // Surface0 (light)
+		HeaderFg:       hex("#8839ef"), // Mauve
 		Border:         hex("#8839ef"),
 		InactiveBorder: hex("#ccd0da"),
 		Primary:        hex("#4c4f69"),
@@ -158,13 +171,15 @@ func catppuccinLatte() Theme {
 func dracula() Theme {
 	return Theme{
 		Name:           "dracula",
+		HeaderBg:       hex("#44475a"), // Current Line
+		HeaderFg:       hex("#ff79c6"), // Pink
 		Border:         hex("#bd93f9"), // Purple
-		InactiveBorder: hex("#44475a"), // Current Line
+		InactiveBorder: hex("#44475a"),
 		Primary:        hex("#f8f8f2"), // Foreground
-		Accent:         hex("#ffb86c"), // Orange
+		Accent:         hex("#ff79c6"), // Pink
 		Secondary:      hex("#50fa7b"), // Green
 		Muted:          hex("#6272a4"), // Comment
-		Subtle:         hex("#44475a"), // Current Line
+		Subtle:         hex("#44475a"),
 		InputBg:        hex("#44475a"),
 		Placeholder:    hex("#6272a4"),
 	}
@@ -173,13 +188,15 @@ func dracula() Theme {
 func nord() Theme {
 	return Theme{
 		Name:           "nord",
-		Border:         hex("#88c0d0"), // Frost
-		InactiveBorder: hex("#3b4252"), // Polar Night 1
-		Primary:        hex("#eceff4"), // Snow Storm 2
+		HeaderBg:       hex("#3b4252"), // Polar Night 1
+		HeaderFg:       hex("#88c0d0"), // Frost
+		Border:         hex("#88c0d0"),
+		InactiveBorder: hex("#3b4252"),
+		Primary:        hex("#eceff4"),
 		Accent:         hex("#d08770"), // Aurora orange
 		Secondary:      hex("#a3be8c"), // Aurora green
-		Muted:          hex("#d8dee9"), // Snow Storm 0
-		Subtle:         hex("#4c566a"), // Polar Night 3
+		Muted:          hex("#d8dee9"),
+		Subtle:         hex("#4c566a"),
 		InputBg:        hex("#3b4252"),
 		Placeholder:    hex("#4c566a"),
 	}
@@ -188,9 +205,11 @@ func nord() Theme {
 func gruvboxDark() Theme {
 	return Theme{
 		Name:           "gruvbox-dark",
+		HeaderBg:       hex("#3c3836"), // bg1
+		HeaderFg:       hex("#fabd2f"), // bright yellow
 		Border:         hex("#83a598"), // bright aqua
 		InactiveBorder: hex("#3c3836"),
-		Primary:        hex("#ebdbb2"), // fg
+		Primary:        hex("#ebdbb2"),
 		Accent:         hex("#fe8019"), // bright orange
 		Secondary:      hex("#b8bb26"), // bright green
 		Muted:          hex("#a89984"),
@@ -203,9 +222,11 @@ func gruvboxDark() Theme {
 func tokyoNight() Theme {
 	return Theme{
 		Name:           "tokyo-night",
-		Border:         hex("#7aa2f7"), // blue
+		HeaderBg:       hex("#292e42"), // bg_highlight
+		HeaderFg:       hex("#7aa2f7"), // blue
+		Border:         hex("#7aa2f7"),
 		InactiveBorder: hex("#292e42"),
-		Primary:        hex("#c0caf5"), // fg
+		Primary:        hex("#c0caf5"),
 		Accent:         hex("#ff9e64"), // orange
 		Secondary:      hex("#9ece6a"), // green
 		Muted:          hex("#a9b1d6"),
