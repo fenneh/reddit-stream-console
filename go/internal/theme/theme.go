@@ -62,13 +62,20 @@ var themes = map[string]Theme{
 
 // Get returns the named theme, or Default() if name is empty or unknown.
 func Get(name string) Theme {
+	t, _ := Lookup(name)
+	return t
+}
+
+// Lookup returns the named theme and whether name matched a built-in.
+// Empty name returns Default(), true. Unknown name returns Default(), false.
+func Lookup(name string) (Theme, bool) {
 	if name == "" {
-		return Default()
+		return Default(), true
 	}
 	if t, ok := themes[strings.ToLower(strings.TrimSpace(name))]; ok {
-		return t
+		return t, true
 	}
-	return Default()
+	return Default(), false
 }
 
 func Default() Theme { return themes["default"] }
