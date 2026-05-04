@@ -32,7 +32,7 @@ type MenuItem struct {
 type StringOrSlice []string
 
 func (s *StringOrSlice) UnmarshalJSON(data []byte) error {
-	if len(data) == 0 {
+	if len(data) == 0 || string(data) == "null" {
 		*s = nil
 		return nil
 	}
