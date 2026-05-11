@@ -36,6 +36,9 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Run tests
+        run: go test ./...
+
   build:
     needs: lint
     runs-on: ${{ matrix.os }}
