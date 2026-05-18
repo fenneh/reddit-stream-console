@@ -864,68 +864,9 @@ func (ta *TviewApp) stopAutoRefresh() {
 
 func (ta *TviewApp) renderComments() {
 	ta.commentsView.Clear()
-
-	// Get terminal width for wrapping
-	_, _, width, _ := ta.commentsView.GetInnerRect()
-	if width <= 0 {
-		width = 80 // fallback
-	}
-
-	filterLower := strings.ToLower(strings.TrimSpace(ta.commentFilter))
-	roots := buildCommentTree(ta.comments, filterLower)
-
-	var walk func(nodes []*commentNode, depth int)
-	walk = func(nodes []*commentNode, depth int) {
-		for _, node := range nodes {
-			indent := strings.Repeat("  ", depth)
-			arrow := ""
-			if depth > 0 {
-				arrow = fmt.Sprintf("[%s]→[-] ", ta.theme.Accent.Hex)
-			}
-
-			header := fmt.Sprintf("%s%s[%s::b]%s[-:-:-] [%s]•[-] [%s]%d points[-] [%s]•[-] [%s]%s[-]",
-				indent, arrow,
-				ta.theme.Primary.Hex, node.comment.Author,
-				ta.theme.Subtle.Hex,
-				ta.theme.Secondary.Hex, node.comment.Score,
-				ta.theme.Subtle.Hex,
-				ta.theme.Border.Hex, node.comment.FormattedTime)
-			fmt.Fprintln(ta.commentsView, header)
-
-			// Body with proper wrapping
-			bodyIndent := indent
-			if depth > 0 {
-				bodyIndent = indent + "  "
-			}
-
-			// Wrap body text to maintain indentation
-			bodyWidth := width - len(bodyIndent) - 2
-			if bodyWidth < 20 {
-				bodyWidth = 20
-			}
-
-			for _, paragraph := range strings.Split(node.comment.Body, "\n") {
-				if strings.TrimSpace(paragraph) == "" {
-					fmt.Fprintln(ta.commentsView)
-					continue
-				}
-				wrappedLines := wrapText(paragraph, bodyWidth)
-				for _, line := range wrappedLines {
-					fmt.Fprintf(ta.commentsView, "%s%s\n", bodyIndent, line)
-				}
-			}
-			fmt.Fprintln(ta.commentsView)
-
-			if len(node.children) > 0 {
-				walk(node.children, depth+1)
-			}
-		}
-	}
-
-	walk(roots, 0)
+	ta.renderCommentsToView(ta.commentsView, ta.comments, ta.commentFilter)
 }
 
-// wrapText wraps text to the specified width
 func wrapText(text string, width int) []string {
 	if width <= 0 {
 		return []string{text}
@@ -1033,7 +974,6 @@ func (ta *TviewApp) cycleTheme() {
 	}
 }
 
-// checkForUpdates checks GitHub for a newer release
 func (ta *TviewApp) checkForUpdates() {
 	if Version == "dev" {
 		return
@@ -1073,13 +1013,11 @@ func (ta *TviewApp) checkForUpdates() {
 	}
 }
 
-// commentNode represents a comment with its children for tree building
 type commentNode struct {
 	comment  reddit.Comment
 	children []*commentNode
 }
 
-// buildCommentTree builds a tree structure from flat comments
 func buildCommentTree(comments []reddit.Comment, filterLower string) []*commentNode {
 	nodes := make(map[string]*commentNode, len(comments))
 	order := make([]*commentNode, 0, len(comments))
@@ -1149,7 +1087,6 @@ func (ta *TviewApp) splitView(direction int) {
 	ta.rebuildSplitLayout()
 }
 
-// rebuildSplitLayout rebuilds the comments page with split panes
 func (ta *TviewApp) rebuildSplitLayout() {
 	splitFlex := tview.NewFlex().SetDirection(ta.splitDirection)
 
@@ -1164,7 +1101,6 @@ func (ta *TviewApp) rebuildSplitLayout() {
 	ta.updateSplitHeader()
 }
 
-// buildPaneContent creates the view content for a pane
 func (ta *TviewApp) buildPaneContent(pane *CommentPane) *tview.Flex {
 	flex := tview.NewFlex().SetDirection(tview.FlexRow)
 
@@ -1230,7 +1166,6 @@ func (ta *TviewApp) buildPaneContent(pane *CommentPane) *tview.Flex {
 	return flex
 }
 
-// renderCommentsToView renders comments to a specific TextView
 func (ta *TviewApp) renderCommentsToView(view *tview.TextView, comments []reddit.Comment, filter string) {
 	_, _, width, _ := view.GetInnerRect()
 	if width <= 0 {
@@ -1300,7 +1235,6 @@ func (ta *TviewApp) renderCommentsToView(view *tview.TextView, comments []reddit
 	walk(roots, 0)
 }
 
-// switchActivePane switches focus between primary and secondary panes
 func (ta *TviewApp) switchActivePane() {
 	if !ta.splitMode || ta.secondaryPane == nil {
 		return
@@ -1320,7 +1254,6 @@ func (ta *TviewApp) switchActivePane() {
 	ta.updateSplitHeader()
 }
 
-// updateSplitHeader updates the header to show split mode info
 func (ta *TviewApp) updateSplitHeader() {
 	var title string
 	if ta.activePaneID == "primary" && ta.primaryPane.thread != nil {
@@ -1341,7 +1274,6 @@ func (ta *TviewApp) updateSplitHeader() {
 	fmt.Fprintf(ta.statusBar, " %s", ta.formatKeys(keys))
 }
 
-// getActivePane returns the currently active pane
 func (ta *TviewApp) getActivePane() *CommentPane {
 	if ta.activePaneID == "secondary" && ta.secondaryPane != nil {
 		return ta.secondaryPane
@@ -1349,7 +1281,6 @@ func (ta *TviewApp) getActivePane() *CommentPane {
 	return ta.primaryPane
 }
 
-// closeSplitMode closes split mode and returns to single pane view
 func (ta *TviewApp) closeSplitMode() {
 	if !ta.splitMode {
 		return
@@ -1396,7 +1327,6 @@ func (ta *TviewApp) closeSplitMode() {
 	ta.showComments()
 }
 
-// paneMenuUp moves menu selection up in a pane
 func (ta *TviewApp) paneMenuUp(pane *CommentPane) {
 	orig := pane.menuIndex
 	for {
@@ -1414,7 +1344,6 @@ func (ta *TviewApp) paneMenuUp(pane *CommentPane) {
 	ta.rebuildSplitLayout()
 }
 
-// paneMenuDown moves menu selection down in a pane
 func (ta *TviewApp) paneMenuDown(pane *CommentPane) {
 	orig := pane.menuIndex
 	for {
@@ -1432,7 +1361,6 @@ func (ta *TviewApp) paneMenuDown(pane *CommentPane) {
 	ta.rebuildSplitLayout()
 }
 
-// paneSelectMenuItem handles menu selection in a pane
 func (ta *TviewApp) paneSelectMenuItem(pane *CommentPane) {
 	if pane.menuIndex < 0 || pane.menuIndex >= len(ta.menuItems) {
 		return
@@ -1472,7 +1400,6 @@ func (ta *TviewApp) paneSelectMenuItem(pane *CommentPane) {
 	}()
 }
 
-// paneThreadUp moves thread selection up in a pane
 func (ta *TviewApp) paneThreadUp(pane *CommentPane) {
 	if len(pane.threadsData) == 0 {
 		return
@@ -1484,7 +1411,6 @@ func (ta *TviewApp) paneThreadUp(pane *CommentPane) {
 	ta.rebuildSplitLayout()
 }
 
-// paneThreadDown moves thread selection down in a pane
 func (ta *TviewApp) paneThreadDown(pane *CommentPane) {
 	if len(pane.threadsData) == 0 {
 		return
@@ -1496,7 +1422,6 @@ func (ta *TviewApp) paneThreadDown(pane *CommentPane) {
 	ta.rebuildSplitLayout()
 }
 
-// paneSelectThread handles thread selection in a pane
 func (ta *TviewApp) paneSelectThread(pane *CommentPane) {
 	if pane.threadIndex < 0 || pane.threadIndex >= len(pane.threadsData) {
 		return
@@ -1533,7 +1458,6 @@ func (ta *TviewApp) paneSelectThread(pane *CommentPane) {
 	}()
 }
 
-// startAutoRefreshForPane starts auto-refresh for a specific pane
 func (ta *TviewApp) startAutoRefreshForPane(pane *CommentPane) {
 	if pane == nil || pane.thread == nil {
 		return
@@ -1568,7 +1492,6 @@ func (ta *TviewApp) startAutoRefreshForPane(pane *CommentPane) {
 	}()
 }
 
-// loadCommentsForPane loads comments for a specific pane
 func (ta *TviewApp) loadCommentsForPane(pane *CommentPane) {
 	if pane == nil || pane.thread == nil {
 		return

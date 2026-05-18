@@ -9,7 +9,6 @@ import (
 	"github.com/fenneh/reddit-stream-console/internal/theme"
 )
 
-// CommentPane represents a single pane that can display comments or menu
 type CommentPane struct {
 	id             string
 	view           *tview.TextView
@@ -23,7 +22,6 @@ type CommentPane struct {
 
 	theme theme.Theme
 
-	// State tracking for what's displayed in this pane
 	showingMenu    bool
 	showingThreads bool
 	menuIndex      int
@@ -32,7 +30,6 @@ type CommentPane struct {
 	currentMenu    *config.MenuItem
 }
 
-// NewCommentPane creates a new comment pane with the given ID
 func NewCommentPane(id string, t theme.Theme) *CommentPane {
 	pane := &CommentPane{
 		id:          id,
@@ -59,7 +56,6 @@ func NewCommentPane(id string, t theme.Theme) *CommentPane {
 	return pane
 }
 
-// Clear resets the pane state
 func (p *CommentPane) Clear() {
 	p.thread = nil
 	p.comments = nil
@@ -74,7 +70,6 @@ func (p *CommentPane) Clear() {
 	p.view.Clear()
 }
 
-// SetActive updates the pane's border to indicate active/inactive state
 func (p *CommentPane) SetActive(active bool) {
 	if active {
 		p.view.SetBorderColor(p.theme.Border.TCell)
