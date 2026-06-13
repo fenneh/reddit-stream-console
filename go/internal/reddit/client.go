@@ -4,26 +4,53 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
+
+// baseURL uses old.reddit.com: reddit.com serves 403 for anonymous .json
+// requests, while old.reddit.com still allows them once session cookies
+// from a prior page load are present.
+const baseURL = "https://old.reddit.com"
 
 type Client struct {
 	httpClient *http.Client
 	userAgent  string
+	warmUp     sync.Once
 }
 
 func NewClient(userAgent string) *Client {
+	jar, _ := cookiejar.New(nil)
 	return &Client{
-		httpClient: &http.Client{Timeout: 15 * time.Second},
+		httpClient: &http.Client{Timeout: 15 * time.Second, Jar: jar},
 		userAgent:  userAgent,
 	}
 }
 
+// warmUpCookies fetches the reddit front page once to obtain the session
+// cookies that .json endpoints require; without them they return 403.
+func (c *Client) warmUpCookies() {
+	c.warmUp.Do(func() {
+		req, err := http.NewRequest(http.MethodGet, baseURL+"/", nil)
+		if err != nil {
+			return
+		}
+		req.Header.Set("User-Agent", c.userAgent)
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return
+		}
+		resp.Body.Close()
+	})
+}
+
 func (c *Client) FetchComments(permalink string) ([]Comment, string, error) {
+	c.warmUpCookies()
 	clean := strings.Trim(permalink, "/")
-	urlStr := fmt.Sprintf("https://www.reddit.com/%s.json?sort=new&limit=200&_=%d", clean, time.Now().UnixNano())
+	urlStr := fmt.Sprintf("%s/%s.json?sort=new&limit=200&_=%d", baseURL, clean, time.Now().UnixNano())
 
 	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
 	if err != nil {
@@ -68,6 +95,7 @@ func (c *Client) FetchComments(permalink string) ([]Comment, string, error) {
 }
 
 func (c *Client) FindThreads(cfg ThreadQuery) ([]Thread, error) {
+	c.warmUpCookies()
 	threads := make([]Thread, 0, 64)
 
 	for _, flair := range cfg.Flairs {
@@ -77,7 +105,7 @@ func (c *Client) FindThreads(cfg ThreadQuery) ([]Thread, error) {
 		query.Set("t", "week")
 		query.Set("limit", fmt.Sprintf("%d", cfg.Limit))
 		query.Set("restrict_sr", "1")
-		urlStr := fmt.Sprintf("https://www.reddit.com/r/%s/search.json?%s", cfg.Subreddit, query.Encode())
+		urlStr := fmt.Sprintf("%s/r/%s/search.json?%s", baseURL, cfg.Subreddit, query.Encode())
 
 		req, err := http.NewRequest(http.MethodGet, urlStr, nil)
 		if err != nil {

@@ -2,8 +2,10 @@ package reddit
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 )
@@ -349,6 +351,114 @@ func TestFindThreads(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(threads) != 1 || threads[0].ID != "abc123" {
+		t.Errorf("unexpected threads: %+v", threads)
+	}
+}
+
+// — cookie warm-up —
+
+func newWarmUpTestClient(srv *httptest.Server) *Client {
+	client := NewClient("test")
+	client.httpClient.Transport = &redirectTransport{srv: srv}
+	return client
+}
+
+var warmUpQuery = ThreadQuery{
+	Type:      "match",
+	Subreddit: "soccer",
+	Flairs:    []string{"match thread"},
+	Limit:     10,
+}
+
+func TestWarmUpRunsOnceBeforeFirstRequest(t *testing.T) {
+	var mu sync.Mutex
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths = append(paths, r.URL.Path)
+		mu.Unlock()
+		if r.URL.Path == "/" {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(buildSearchPayload("abc123", "Match Thread: Test vs Test"))
+	}))
+	defer srv.Close()
+
+	client := newWarmUpTestClient(srv)
+	for i := 0; i < 2; i++ {
+		if _, err := client.FindThreads(warmUpQuery); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(paths) == 0 || paths[0] != "/" {
+		t.Fatalf("expected warm-up request before API requests, got %v", paths)
+	}
+	warmUps := 0
+	for _, p := range paths {
+		if p == "/" {
+			warmUps++
+		}
+	}
+	if warmUps != 1 {
+		t.Errorf("expected exactly one warm-up request, got %d (paths: %v)", warmUps, paths)
+	}
+}
+
+func TestWarmUpCookiesSentOnAPIRequests(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.SetCookie(w, &http.Cookie{Name: "session", Value: "abc"})
+			return
+		}
+		// Mimic reddit: .json requests without session cookies get 403.
+		if c, err := r.Cookie("session"); err != nil || c.Value != "abc" {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(buildSearchPayload("abc123", "Match Thread: Test vs Test"))
+	}))
+	defer srv.Close()
+
+	threads, err := newWarmUpTestClient(srv).FindThreads(warmUpQuery)
+	if err != nil {
+		t.Fatalf("expected warm-up cookies to be sent, got error: %v", err)
+	}
+	if len(threads) != 1 {
+		t.Errorf("unexpected threads: %+v", threads)
+	}
+}
+
+type warmUpFailTransport struct {
+	inner http.RoundTripper
+}
+
+func (t *warmUpFailTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.Path == "/" {
+		return nil, errors.New("warm-up connection failed")
+	}
+	return t.inner.RoundTrip(req)
+}
+
+func TestWarmUpFailureIsNonFatal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(buildSearchPayload("abc123", "Match Thread: Test vs Test"))
+	}))
+	defer srv.Close()
+
+	client := NewClient("test")
+	client.httpClient.Transport = &warmUpFailTransport{inner: &redirectTransport{srv: srv}}
+
+	threads, err := client.FindThreads(warmUpQuery)
+	if err != nil {
+		t.Fatalf("warm-up failure should not fail the request, got: %v", err)
+	}
+	if len(threads) != 1 {
 		t.Errorf("unexpected threads: %+v", threads)
 	}
 }
