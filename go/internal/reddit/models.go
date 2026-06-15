@@ -39,34 +39,22 @@ func (q ThreadQuery) WithinAge(createdUTC float64) bool {
 		return true
 	}
 	ageSeconds := float64(q.MaxAgeHours * 3600)
-	return createdUTC >= (nowUTC() - ageSeconds)
+	return createdUTC >= float64(time.Now().Unix())-ageSeconds
 }
 
 func (q ThreadQuery) TitleMatches(title string) bool {
-	lower := stringsLower(title)
+	lower := strings.ToLower(title)
 	for _, phrase := range q.TitleMustContain {
-		if !stringsContains(lower, stringsLower(phrase)) {
+		if !strings.Contains(lower, strings.ToLower(phrase)) {
 			return false
 		}
 	}
 	for _, phrase := range q.TitleMustNotContain {
-		if stringsContains(lower, stringsLower(phrase)) {
+		if strings.Contains(lower, strings.ToLower(phrase)) {
 			return false
 		}
 	}
 	return true
-}
-
-func nowUTC() float64 {
-	return float64(time.Now().Unix())
-}
-
-func stringsLower(value string) string {
-	return strings.ToLower(value)
-}
-
-func stringsContains(haystack, needle string) bool {
-	return strings.Contains(haystack, needle)
 }
 
 type listing struct {
