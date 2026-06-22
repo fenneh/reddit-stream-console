@@ -117,15 +117,15 @@ func (c *Client) FindThreads(cfg ThreadQuery) ([]Thread, error) {
 		if err != nil {
 			return nil, fmt.Errorf("fetch threads: %w", err)
 		}
-		if resp.Body != nil {
-			defer resp.Body.Close()
-		}
 		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
 			return nil, fmt.Errorf("fetch threads: http %d", resp.StatusCode)
 		}
 
 		var listing listing
-		if err := json.NewDecoder(resp.Body).Decode(&listing); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&listing)
+		resp.Body.Close()
+		if err != nil {
 			return nil, fmt.Errorf("decode threads: %w", err)
 		}
 
