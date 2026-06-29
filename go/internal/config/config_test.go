@@ -144,3 +144,82 @@ func TestLoadAppConfigMissingFile(t *testing.T) {
 		t.Error("expected error for missing app config file")
 	}
 }
+
+func TestSaveThemeCreatesNewFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	path, err := config.SaveTheme("nord")
+	if err != nil {
+		t.Fatalf("SaveTheme: %v", err)
+	}
+
+	want := filepath.Join(home, ".reddit-stream-console", "config", "app_config.json")
+	if path != want {
+		t.Errorf("path = %q, want %q", path, want)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("parse result: %v", err)
+	}
+	if result["theme"] != "nord" {
+		t.Errorf("theme = %v, want nord", result["theme"])
+	}
+}
+
+func TestSaveThemeUpdatesExistingFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	configDir := filepath.Join(home, ".reddit-stream-console", "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(configDir, "app_config.json")
+	if err := os.WriteFile(configPath, []byte(`{"debug_logging":true,"theme":"default"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := config.SaveTheme("dracula")
+	if err != nil {
+		t.Fatalf("SaveTheme: %v", err)
+	}
+	if got != configPath {
+		t.Errorf("returned path = %q, want %q", got, configPath)
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("parse result: %v", err)
+	}
+	if result["theme"] != "dracula" {
+		t.Errorf("theme = %v, want dracula", result["theme"])
+	}
+	if result["debug_logging"] != true {
+		t.Errorf("debug_logging not preserved, got %v", result["debug_logging"])
+	}
+}
+
+func TestResolveConfigPathNotFound(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if got := config.ResolveConfigPath("config/nonexistent.json"); got != "" {
+		t.Errorf("expected empty string for missing file, got %q", got)
+	}
+}
+
+func TestSearchPathsNonEmpty(t *testing.T) {
+	if paths := config.SearchPaths(); len(paths) == 0 {
+		t.Error("SearchPaths returned empty slice")
+	}
+}
