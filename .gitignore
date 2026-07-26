@@ -43,6 +43,7 @@ Thumbs.db
 # Go
 go/bin/
 go/dist/
+go/coverage.out
 *.exe
 *.exe~
 *.dll
