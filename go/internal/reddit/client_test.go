@@ -320,6 +320,62 @@ func TestFetchCommentsHTTPError(t *testing.T) {
 	}
 }
 
+// — ThreadFromURL (HTTP) —
+
+func TestThreadFromURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(buildCommentsPayload("abc123", "Match Thread", "Great goal!"))
+	}))
+	defer srv.Close()
+
+	thread, err := newTestClient(srv).ThreadFromURL("https://www.reddit.com/r/test/comments/abc123/thread/")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if thread.ID != "abc123" {
+		t.Errorf("ID = %q, want %q", thread.ID, "abc123")
+	}
+	if thread.Title != "Match Thread" {
+		t.Errorf("Title = %q, want %q", thread.Title, "Match Thread")
+	}
+	if thread.Permalink != "/r/test/comments/abc123/thread" {
+		t.Errorf("Permalink = %q, want %q", thread.Permalink, "/r/test/comments/abc123/thread")
+	}
+	if thread.Type != "url_input" {
+		t.Errorf("Type = %q, want %q", thread.Type, "url_input")
+	}
+}
+
+func TestThreadFromURLEmptyInput(t *testing.T) {
+	if _, err := newTestClient(nil).ThreadFromURL(""); err == nil {
+		t.Error("expected error for empty input")
+	}
+}
+
+func TestThreadFromURLInvalidThreadID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(buildCommentsPayload("abc123", "Match Thread", "Great goal!"))
+	}))
+	defer srv.Close()
+
+	if _, err := newTestClient(srv).ThreadFromURL("/not/a/valid/path"); err == nil {
+		t.Error("expected error for permalink with no thread id")
+	}
+}
+
+func TestThreadFromURLHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	if _, err := newTestClient(srv).ThreadFromURL("/r/test/comments/abc123/thread/"); err == nil {
+		t.Error("expected error for non-200 response")
+	}
+}
+
 // — FindThreads (HTTP) —
 
 func buildSearchPayload(postID, title string) []byte {
