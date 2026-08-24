@@ -38,9 +38,8 @@ func main() {
 	}
 
 	userAgent := os.Getenv("REDDIT_USER_AGENT")
-	if userAgent == "" {
-		userAgent = "RedditStreamConsole/1.0"
-	}
+	clientID := os.Getenv("REDDIT_CLIENT_ID")
+	clientSecret := os.Getenv("REDDIT_CLIENT_SECRET")
 
 	resolvedTheme, themeOK := theme.Lookup(appConfig.Theme)
 	var themeWarning string
@@ -55,7 +54,12 @@ func main() {
 		return
 	}
 
-	client := reddit.NewClient(userAgent)
+	client, err := reddit.NewClient(userAgent, clientID, clientSecret)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create reddit client: %v\n", err)
+		fmt.Fprintln(os.Stderr, "set REDDIT_CLIENT_ID (and REDDIT_CLIENT_SECRET if using a script-type app) in .env - see .env.example")
+		os.Exit(1)
+	}
 	tviewApp := app.NewTviewApp(menuConfig.MenuItems, client, resolvedTheme)
 	if themeWarning != "" {
 		tviewApp.SetStartupNotice(themeWarning)

@@ -4,59 +4,124 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 )
 
-// baseURL uses old.reddit.com: reddit.com serves 403 for anonymous .json
-// requests, while old.reddit.com still allows them once session cookies
-// from a prior page load are present.
-const baseURL = "https://old.reddit.com"
-
 type Client struct {
-	httpClient *http.Client
-	userAgent  string
-	warmUp     sync.Once
+	httpClient   *http.Client
+	userAgent    string
+	baseURL      string // oauth.reddit.com API base
+	tokenURL     string // token endpoint (www.reddit.com)
+	clientID     string
+	clientSecret string
+
+	tokenMu     sync.Mutex
+	accessToken string
+	tokenExpiry time.Time
 }
 
-func NewClient(userAgent string) *Client {
-	jar, _ := cookiejar.New(nil)
-	return &Client{
-		httpClient: &http.Client{Timeout: 15 * time.Second, Jar: jar},
-		userAgent:  userAgent,
+// NewClient builds a Reddit API client authenticated with an app-only OAuth
+// token. clientID is required; clientSecret is only needed for a "script"
+// type app (a Reddit "installed app" has no secret, and clientSecret should
+// be left empty in that case). Get credentials at https://www.reddit.com/prefs/apps.
+func NewClient(userAgent, clientID, clientSecret string) (*Client, error) {
+	if userAgent == "" {
+		userAgent = "terminal:reddit-stream-console:v1.0.0 (by github.com/fenneh/reddit-stream-console)"
 	}
+	if clientID == "" {
+		return nil, fmt.Errorf("REDDIT_CLIENT_ID is required - see .env.example")
+	}
+
+	return &Client{
+		httpClient:   &http.Client{Timeout: 15 * time.Second},
+		userAgent:    userAgent,
+		baseURL:      "https://oauth.reddit.com",
+		tokenURL:     "https://www.reddit.com/api/v1/access_token",
+		clientID:     clientID,
+		clientSecret: clientSecret,
+	}, nil
 }
 
-// warmUpCookies fetches the reddit front page once to obtain the session
-// cookies that .json endpoints require; without them they return 403.
-func (c *Client) warmUpCookies() {
-	c.warmUp.Do(func() {
-		req, err := http.NewRequest(http.MethodGet, baseURL+"/", nil)
-		if err != nil {
-			return
-		}
-		req.Header.Set("User-Agent", c.userAgent)
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			return
-		}
-		resp.Body.Close()
-	})
+// ensureToken returns a cached app-only OAuth access token, fetching (or
+// refreshing an expired) one. Apps with a secret (the "script" type) use the
+// standard client_credentials grant; secret-less apps (the "installed app"
+// type) use Reddit's installed_client grant instead.
+func (c *Client) ensureToken() (string, error) {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+
+	if c.accessToken != "" && time.Now().Before(c.tokenExpiry) {
+		return c.accessToken, nil
+	}
+
+	form := url.Values{}
+	if c.clientSecret != "" {
+		form.Set("grant_type", "client_credentials")
+	} else {
+		form.Set("grant_type", "https://oauth.reddit.com/grants/installed_client")
+		form.Set("device_id", "reddit-stream-console")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, c.tokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("build token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", c.userAgent)
+	req.SetBasicAuth(c.clientID, c.clientSecret)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetch token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("fetch token: http %d", resp.StatusCode)
+	}
+
+	var payload struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return "", fmt.Errorf("decode token: %w", err)
+	}
+	if payload.AccessToken == "" {
+		return "", fmt.Errorf("empty access token in response")
+	}
+
+	c.accessToken = payload.AccessToken
+	c.tokenExpiry = time.Now().Add(time.Duration(payload.ExpiresIn-30) * time.Second)
+	return c.accessToken, nil
 }
 
-func (c *Client) FetchComments(permalink string) ([]Comment, string, error) {
-	c.warmUpCookies()
-	clean := strings.Trim(permalink, "/")
-	urlStr := fmt.Sprintf("%s/%s.json?sort=new&limit=200&_=%d", baseURL, clean, time.Now().UnixNano())
+func (c *Client) newAuthedRequest(urlStr string) (*http.Request, error) {
+	token, err := c.ensureToken()
+	if err != nil {
+		return nil, fmt.Errorf("authenticate: %w", err)
+	}
 
 	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
 	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("User-Agent", c.userAgent)
+	return req, nil
+}
+
+func (c *Client) FetchComments(permalink string) ([]Comment, string, error) {
+	clean := strings.Trim(permalink, "/")
+	urlStr := fmt.Sprintf("%s/%s?sort=new&limit=200&_=%d", c.baseURL, clean, time.Now().UnixNano())
+
+	req, err := c.newAuthedRequest(urlStr)
+	if err != nil {
 		return nil, "", fmt.Errorf("build comments request: %w", err)
 	}
-	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	req.Header.Set("Pragma", "no-cache")
 
@@ -95,7 +160,6 @@ func (c *Client) FetchComments(permalink string) ([]Comment, string, error) {
 }
 
 func (c *Client) FindThreads(cfg ThreadQuery) ([]Thread, error) {
-	c.warmUpCookies()
 	threads := make([]Thread, 0, 64)
 
 	for _, flair := range cfg.Flairs {
@@ -105,13 +169,12 @@ func (c *Client) FindThreads(cfg ThreadQuery) ([]Thread, error) {
 		query.Set("t", "week")
 		query.Set("limit", fmt.Sprintf("%d", cfg.Limit))
 		query.Set("restrict_sr", "1")
-		urlStr := fmt.Sprintf("%s/r/%s/search.json?%s", baseURL, cfg.Subreddit, query.Encode())
+		urlStr := fmt.Sprintf("%s/r/%s/search?%s", c.baseURL, cfg.Subreddit, query.Encode())
 
-		req, err := http.NewRequest(http.MethodGet, urlStr, nil)
+		req, err := c.newAuthedRequest(urlStr)
 		if err != nil {
 			return nil, fmt.Errorf("build search request: %w", err)
 		}
-		req.Header.Set("User-Agent", c.userAgent)
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
