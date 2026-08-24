@@ -223,3 +223,38 @@ func TestSearchPathsNonEmpty(t *testing.T) {
 		t.Error("SearchPaths returned empty slice")
 	}
 }
+
+func TestLoadAppConfigRelativePathFound(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	configDir := filepath.Join(home, ".reddit-stream-console")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"debug_logging":true,"theme":"nord"}`
+	if err := os.WriteFile(filepath.Join(configDir, "app_config.json"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := config.LoadAppConfig("app_config.json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Theme != "nord" {
+		t.Errorf("theme = %q, want nord", cfg.Theme)
+	}
+}
+
+func TestLoadMenuConfigRelativePathNotFound(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg, err := config.LoadMenuConfig("nonexistent_menu_config.json")
+	if err != nil {
+		t.Fatalf("expected no error for missing file, got: %v", err)
+	}
+	if len(cfg.MenuItems) == 0 {
+		t.Error("expected default items when file missing")
+	}
+}
