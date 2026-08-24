@@ -2,33 +2,21 @@ package reddit
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 )
 
-// redirectTransport rewrites all outbound requests to the given test server,
-// so we can exercise HTTP logic without hitting reddit.com.
-type redirectTransport struct {
-	srv *httptest.Server
-}
-
-func (t *redirectTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	cloned := *req
-	clonedURL := *req.URL
-	clonedURL.Scheme = "http"
-	clonedURL.Host = t.srv.Listener.Addr().String()
-	cloned.URL = &clonedURL
-	return http.DefaultTransport.RoundTrip(&cloned)
-}
-
+// newTestClient points the client at a local httptest server with a
+// pre-seeded token, so we can exercise HTTP logic without hitting reddit.com.
 func newTestClient(srv *httptest.Server) *Client {
 	return &Client{
-		httpClient: &http.Client{Transport: &redirectTransport{srv: srv}},
-		userAgent:  "test",
+		httpClient:  &http.Client{},
+		userAgent:   "test",
+		baseURL:     srv.URL,
+		accessToken: "test-token",
+		tokenExpiry: time.Now().Add(time.Hour),
 	}
 }
 
@@ -182,7 +170,7 @@ func TestExtractPostWrongKind(t *testing.T) {
 // — processComment —
 
 func TestProcessComment(t *testing.T) {
-	c := NewClient("test")
+	c := &Client{userAgent: "test"}
 	raw, _ := json.Marshal(redditComment{
 		ID:       "c1",
 		Author:   "alice",
@@ -208,7 +196,7 @@ func TestProcessComment(t *testing.T) {
 }
 
 func TestProcessCommentDeletedSkipped(t *testing.T) {
-	c := NewClient("test")
+	c := &Client{userAgent: "test"}
 	for _, body := range []string{"[deleted]", "[removed]"} {
 		raw, _ := json.Marshal(redditComment{ID: "c1", Author: "x", Body: body, ParentID: "t3_post1"})
 		var out []Comment
@@ -220,7 +208,7 @@ func TestProcessCommentDeletedSkipped(t *testing.T) {
 }
 
 func TestProcessCommentWrongParentSkipped(t *testing.T) {
-	c := NewClient("test")
+	c := &Client{userAgent: "test"}
 	raw, _ := json.Marshal(redditComment{ID: "c1", Author: "x", Body: "hi", ParentID: "t3_other"})
 	var out []Comment
 	c.processComment(raw, "post1", 0, &out)
@@ -230,7 +218,7 @@ func TestProcessCommentWrongParentSkipped(t *testing.T) {
 }
 
 func TestProcessCommentWithReplies(t *testing.T) {
-	c := NewClient("test")
+	c := &Client{userAgent: "test"}
 
 	replyJSON, _ := json.Marshal(redditComment{
 		ID:       "c2",
@@ -348,7 +336,7 @@ func TestThreadFromURL(t *testing.T) {
 }
 
 func TestThreadFromURLEmptyInput(t *testing.T) {
-	if _, err := newTestClient(nil).ThreadFromURL(""); err == nil {
+	if _, err := (&Client{userAgent: "test"}).ThreadFromURL(""); err == nil {
 		t.Error("expected error for empty input")
 	}
 }
@@ -411,114 +399,6 @@ func TestFindThreads(t *testing.T) {
 	}
 }
 
-// — cookie warm-up —
-
-func newWarmUpTestClient(srv *httptest.Server) *Client {
-	client := NewClient("test")
-	client.httpClient.Transport = &redirectTransport{srv: srv}
-	return client
-}
-
-var warmUpQuery = ThreadQuery{
-	Type:      "match",
-	Subreddit: "soccer",
-	Flairs:    []string{"match thread"},
-	Limit:     10,
-}
-
-func TestWarmUpRunsOnceBeforeFirstRequest(t *testing.T) {
-	var mu sync.Mutex
-	var paths []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		paths = append(paths, r.URL.Path)
-		mu.Unlock()
-		if r.URL.Path == "/" {
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(buildSearchPayload("abc123", "Match Thread: Test vs Test"))
-	}))
-	defer srv.Close()
-
-	client := newWarmUpTestClient(srv)
-	for i := 0; i < 2; i++ {
-		if _, err := client.FindThreads(warmUpQuery); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(paths) == 0 || paths[0] != "/" {
-		t.Fatalf("expected warm-up request before API requests, got %v", paths)
-	}
-	warmUps := 0
-	for _, p := range paths {
-		if p == "/" {
-			warmUps++
-		}
-	}
-	if warmUps != 1 {
-		t.Errorf("expected exactly one warm-up request, got %d (paths: %v)", warmUps, paths)
-	}
-}
-
-func TestWarmUpCookiesSentOnAPIRequests(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			http.SetCookie(w, &http.Cookie{Name: "session", Value: "abc"})
-			return
-		}
-		// Mimic reddit: .json requests without session cookies get 403.
-		if c, err := r.Cookie("session"); err != nil || c.Value != "abc" {
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(buildSearchPayload("abc123", "Match Thread: Test vs Test"))
-	}))
-	defer srv.Close()
-
-	threads, err := newWarmUpTestClient(srv).FindThreads(warmUpQuery)
-	if err != nil {
-		t.Fatalf("expected warm-up cookies to be sent, got error: %v", err)
-	}
-	if len(threads) != 1 {
-		t.Errorf("unexpected threads: %+v", threads)
-	}
-}
-
-type warmUpFailTransport struct {
-	inner http.RoundTripper
-}
-
-func (t *warmUpFailTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.URL.Path == "/" {
-		return nil, errors.New("warm-up connection failed")
-	}
-	return t.inner.RoundTrip(req)
-}
-
-func TestWarmUpFailureIsNonFatal(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(buildSearchPayload("abc123", "Match Thread: Test vs Test"))
-	}))
-	defer srv.Close()
-
-	client := NewClient("test")
-	client.httpClient.Transport = &warmUpFailTransport{inner: &redirectTransport{srv: srv}}
-
-	threads, err := client.FindThreads(warmUpQuery)
-	if err != nil {
-		t.Fatalf("warm-up failure should not fail the request, got: %v", err)
-	}
-	if len(threads) != 1 {
-		t.Errorf("unexpected threads: %+v", threads)
-	}
-}
-
 func TestFindThreadsTitleFilter(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -538,5 +418,93 @@ func TestFindThreadsTitleFilter(t *testing.T) {
 	}
 	if len(threads) != 0 {
 		t.Errorf("expected filtered thread to be excluded, got %+v", threads)
+	}
+}
+
+// — OAuth token —
+
+func TestEnsureTokenCached(t *testing.T) {
+	c := &Client{accessToken: "cached-token", tokenExpiry: time.Now().Add(time.Hour)}
+	token, err := c.ensureToken()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "cached-token" {
+		t.Errorf("token = %q, want %q", token, "cached-token")
+	}
+}
+
+func TestEnsureTokenFetchesWhenExpired(t *testing.T) {
+	var gotGrantType, gotUser, gotPass string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		gotGrantType = r.PostForm.Get("grant_type")
+		gotUser, gotPass, _ = r.BasicAuth()
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"access_token":"fresh-token","expires_in":3600}`))
+	}))
+	defer srv.Close()
+
+	c := &Client{
+		httpClient: &http.Client{},
+		userAgent:  "test",
+		tokenURL:   srv.URL,
+		clientID:   "id123",
+	}
+	token, err := c.ensureToken()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "fresh-token" {
+		t.Errorf("token = %q, want %q", token, "fresh-token")
+	}
+	if gotUser != "id123" || gotPass != "" {
+		t.Errorf("basic auth = (%q, %q), want (\"id123\", \"\")", gotUser, gotPass)
+	}
+	if gotGrantType != "https://oauth.reddit.com/grants/installed_client" {
+		t.Errorf("grant_type = %q, want installed_client grant", gotGrantType)
+	}
+}
+
+func TestEnsureTokenUsesClientCredentialsWithSecret(t *testing.T) {
+	var gotGrantType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		gotGrantType = r.PostForm.Get("grant_type")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"access_token":"fresh-token","expires_in":3600}`))
+	}))
+	defer srv.Close()
+
+	c := &Client{
+		httpClient:   &http.Client{},
+		userAgent:    "test",
+		tokenURL:     srv.URL,
+		clientID:     "id123",
+		clientSecret: "secret456",
+	}
+	if _, err := c.ensureToken(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotGrantType != "client_credentials" {
+		t.Errorf("grant_type = %q, want client_credentials", gotGrantType)
+	}
+}
+
+func TestEnsureTokenHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	c := &Client{httpClient: &http.Client{}, userAgent: "test", tokenURL: srv.URL, clientID: "id123"}
+	if _, err := c.ensureToken(); err == nil {
+		t.Error("expected error for non-200 token response")
+	}
+}
+
+func TestNewClientRequiresClientID(t *testing.T) {
+	if _, err := NewClient("test", "", ""); err == nil {
+		t.Error("expected error when clientID is empty")
 	}
 }
