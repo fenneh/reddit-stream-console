@@ -1,9 +1,11 @@
 package app
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/fenneh/reddit-stream-console/internal/reddit"
+	"github.com/fenneh/reddit-stream-console/internal/theme"
 )
 
 // — wrapText —
@@ -124,6 +126,42 @@ func TestBuildCommentTreeFilterExcludesAll(t *testing.T) {
 	roots := buildCommentTree(comments, "zzz")
 	if len(roots) != 0 {
 		t.Errorf("expected empty result, got %d roots", len(roots))
+	}
+}
+
+// — formatKeys —
+
+func TestFormatKeysWrapsKeyAndDescription(t *testing.T) {
+	ta := &TviewApp{theme: theme.Default()}
+	got := ta.formatKeys("Q:Quit")
+	if !strings.Contains(got, "Q") || !strings.Contains(got, "Quit") {
+		t.Errorf("formatKeys(%q) = %q, want it to contain key and description", "Q:Quit", got)
+	}
+}
+
+func TestFormatKeysJoinsMultipleEntries(t *testing.T) {
+	ta := &TviewApp{theme: theme.Default()}
+	got := ta.formatKeys("Q:Quit R:Refresh")
+	if !strings.Contains(got, "Quit") || !strings.Contains(got, "Refresh") {
+		t.Errorf("formatKeys(%q) = %q, want both entries present", "Q:Quit R:Refresh", got)
+	}
+	if idx1, idx2 := strings.Index(got, "Quit"), strings.Index(got, "Refresh"); idx1 >= idx2 {
+		t.Errorf("formatKeys(%q) = %q, want Quit before Refresh", "Q:Quit R:Refresh", got)
+	}
+}
+
+func TestFormatKeysPassesThroughEntryWithoutColon(t *testing.T) {
+	ta := &TviewApp{theme: theme.Default()}
+	got := ta.formatKeys("standalone")
+	if got != "standalone" {
+		t.Errorf("formatKeys(%q) = %q, want unchanged passthrough", "standalone", got)
+	}
+}
+
+func TestFormatKeysEmptyInput(t *testing.T) {
+	ta := &TviewApp{theme: theme.Default()}
+	if got := ta.formatKeys(""); got != "" {
+		t.Errorf("formatKeys(\"\") = %q, want \"\"", got)
 	}
 }
 

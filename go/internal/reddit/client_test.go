@@ -508,3 +508,26 @@ func TestNewClientRequiresClientID(t *testing.T) {
 		t.Error("expected error when clientID is empty")
 	}
 }
+
+func TestNewClientDefaultsUserAgent(t *testing.T) {
+	c, err := NewClient("", "id123", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.userAgent == "" {
+		t.Error("expected a non-empty default user agent")
+	}
+}
+
+func TestNewClientUsesProvidedUserAgent(t *testing.T) {
+	c, err := NewClient("my-agent", "id123", "secret")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.userAgent != "my-agent" {
+		t.Errorf("userAgent = %q, want %q", c.userAgent, "my-agent")
+	}
+	if c.clientID != "id123" || c.clientSecret != "secret" {
+		t.Errorf("clientID/clientSecret not set correctly: %q/%q", c.clientID, c.clientSecret)
+	}
+}
