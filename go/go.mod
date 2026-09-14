@@ -3,7 +3,7 @@ module github.com/fenneh/reddit-stream-console
 go 1.24.0
 
 require (
-	github.com/gdamore/tcell/v2 v2.13.5
+	github.com/gdamore/tcell/v2 v2.13.10
 	github.com/rivo/tview v0.42.0
 )
 
