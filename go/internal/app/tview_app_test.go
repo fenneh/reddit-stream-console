@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gdamore/tcell/v2"
+
 	"github.com/fenneh/reddit-stream-console/internal/reddit"
 	"github.com/fenneh/reddit-stream-console/internal/theme"
 )
@@ -182,5 +184,38 @@ func TestBuildCommentTreeNestedChildren(t *testing.T) {
 	grandchild := child[0].children
 	if len(grandchild) != 1 || grandchild[0].comment.Author != "c" {
 		t.Errorf("unexpected grandchild: %v", grandchild)
+	}
+}
+
+// — split-mode key routing —
+
+func newSplitTestApp() *TviewApp {
+	ta := NewTviewApp(nil, nil, theme.Default())
+	ta.splitMode = true
+	ta.primaryPane = NewCommentPane("primary", theme.Default())
+	ta.secondaryPane = NewCommentPane("secondary", theme.Default())
+	ta.activePaneID = "primary"
+	ta.pages.SwitchToPage("comments")
+	return ta
+}
+
+func TestSplitModeSlashDoesNotOpenSinglePaneFilter(t *testing.T) {
+	ta := newSplitTestApp()
+	ta.primaryPane.showingMenu = true
+
+	ta.globalKeyHandler(tcell.NewEventKey(tcell.KeyRune, '/', tcell.ModNone))
+
+	if ta.filterActive {
+		t.Error("'/' in split mode opened the single-pane filter")
+	}
+}
+
+func TestSplitModeRefreshHandledByActivePane(t *testing.T) {
+	ta := newSplitTestApp()
+
+	got := ta.globalKeyHandler(tcell.NewEventKey(tcell.KeyRune, 'r', tcell.ModNone))
+
+	if got != nil {
+		t.Error("'r' in split mode was passed through instead of refreshing the pane")
 	}
 }

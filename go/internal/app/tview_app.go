@@ -489,6 +489,12 @@ func (ta *TviewApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 					}
 					ta.rebuildSplitLayout()
 					return nil
+				case tcell.KeyRune:
+					switch event.Rune() {
+					case 'r', 'R':
+						ta.loadCommentsForPane(pane)
+						return nil
+					}
 				}
 			}
 		}
@@ -535,12 +541,12 @@ func (ta *TviewApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 			ta.app.Stop()
 			return nil
 		case 'r', 'R':
-			if pageName == "comments" {
+			if pageName == "comments" && !ta.splitMode {
 				ta.refreshComments()
 				return nil
 			}
 		case '/':
-			if pageName == "comments" {
+			if pageName == "comments" && !ta.splitMode {
 				ta.showFilter()
 				return nil
 			}
