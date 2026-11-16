@@ -775,7 +775,7 @@ func (ta *TviewApp) selectThread(idx int) {
 	ta.setStatus("Loading comments...")
 	ta.app.ForceDraw()
 
-	ta.loadComments()
+	ta.loadComments(true)
 	ta.showComments()
 	ta.startAutoRefresh()
 }
@@ -796,7 +796,7 @@ func (ta *TviewApp) loadThreadFromURL(url string) {
 			ta.comments = nil
 			ta.commentFilter = ""
 			ta.commentsView.Clear()
-			ta.loadComments()
+			ta.loadComments(true)
 			ta.showComments()
 			ta.startAutoRefresh()
 		})

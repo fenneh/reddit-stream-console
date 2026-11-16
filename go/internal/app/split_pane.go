@@ -45,6 +45,7 @@ func (ta *TviewApp) splitView(direction int) {
 
 	// Rebuild the layout
 	ta.rebuildSplitLayout()
+	ta.primaryPane.view.ScrollToEnd()
 }
 
 func (ta *TviewApp) rebuildSplitLayout() {
@@ -119,7 +120,6 @@ func (ta *TviewApp) buildPaneContent(pane *CommentPane) *tview.Flex {
 		// Show comments
 		pane.view.Clear()
 		ta.renderCommentsToView(pane.view, pane.comments, pane.commentFilter)
-		pane.view.ScrollToEnd()
 		flex.AddItem(pane.view, 0, 1, true)
 	}
 
@@ -413,6 +413,7 @@ func (ta *TviewApp) paneSelectThread(pane *CommentPane) {
 			})
 			pane.comments = comments
 			ta.rebuildSplitLayout()
+			pane.view.ScrollToEnd()
 			ta.startAutoRefreshForPane(pane)
 		})
 	}()

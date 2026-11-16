@@ -9,7 +9,11 @@ import (
 	"github.com/fenneh/reddit-stream-console/internal/reddit"
 )
 
-func (ta *TviewApp) loadComments() {
+// loadComments fetches the current thread's comments. follow scrolls the
+// view to the newest comment, which is wanted when opening a thread but not
+// on refresh: tview keeps a view that is already at the end pinned there, so
+// leaving it alone preserves the reader's position if they have scrolled up.
+func (ta *TviewApp) loadComments(follow bool) {
 	if ta.currentThread == nil {
 		return
 	}
@@ -31,15 +35,16 @@ func (ta *TviewApp) loadComments() {
 			})
 			ta.comments = comments
 			ta.renderComments()
-			// Scroll to bottom
-			ta.commentsView.ScrollToEnd()
+			if follow {
+				ta.commentsView.ScrollToEnd()
+			}
 		})
 	}()
 }
 
 func (ta *TviewApp) refreshComments() {
 	ta.setStatus("Refreshing...")
-	ta.loadComments()
+	ta.loadComments(false)
 }
 
 func (ta *TviewApp) startAutoRefresh() {
@@ -56,7 +61,7 @@ func (ta *TviewApp) startAutoRefresh() {
 			case <-ticker.C:
 				if ta.refreshEnabled {
 					ta.app.QueueUpdateDraw(func() {
-						ta.loadComments()
+						ta.loadComments(false)
 					})
 				}
 			case <-ta.stopRefresh:
