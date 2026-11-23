@@ -98,3 +98,37 @@ func TestSetActiveFalseUsesInactiveBorderColor(t *testing.T) {
 		t.Error("border color not set to inactive border color")
 	}
 }
+
+// — refresh lifecycle —
+
+func TestPaneStopAutoRefreshClosesChannel(t *testing.T) {
+	pane := NewCommentPane("left", theme.Default())
+	pane.startAutoRefresh(func() {})
+	ch := pane.stopRefresh
+
+	pane.stopAutoRefresh()
+
+	select {
+	case <-ch:
+	default:
+		t.Fatal("stopAutoRefresh did not close the refresh channel")
+	}
+	if pane.stopRefresh != nil {
+		t.Error("stopRefresh not cleared")
+	}
+}
+
+func TestPaneStartAutoRefreshCancelsPreviousLoop(t *testing.T) {
+	pane := NewCommentPane("left", theme.Default())
+	pane.startAutoRefresh(func() {})
+	first := pane.stopRefresh
+
+	pane.startAutoRefresh(func() {})
+
+	select {
+	case <-first:
+	default:
+		t.Fatal("starting a new refresh loop left the previous channel open")
+	}
+	pane.stopAutoRefresh()
+}

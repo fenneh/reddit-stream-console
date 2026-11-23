@@ -1,6 +1,8 @@
 package app
 
 import (
+	"time"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
@@ -10,15 +12,14 @@ import (
 )
 
 type CommentPane struct {
-	id             string
-	view           *tview.TextView
-	filterInput    *tview.InputField
-	thread         *reddit.Thread
-	comments       []reddit.Comment
-	commentFilter  string
-	filterActive   bool
-	refreshEnabled bool
-	stopRefresh    chan struct{}
+	id            string
+	view          *tview.TextView
+	filterInput   *tview.InputField
+	thread        *reddit.Thread
+	comments      []reddit.Comment
+	commentFilter string
+	filterActive  bool
+	stopRefresh   chan struct{}
 
 	theme theme.Theme
 
@@ -75,5 +76,32 @@ func (p *CommentPane) SetActive(active bool) {
 		p.view.SetBorderColor(p.theme.Border.TCell)
 	} else {
 		p.view.SetBorderColor(p.theme.InactiveBorder.TCell)
+	}
+}
+
+func (p *CommentPane) startAutoRefresh(fetch func()) {
+	p.stopAutoRefresh()
+	stop := make(chan struct{})
+	p.stopRefresh = stop
+
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				fetch()
+			case <-stop:
+				return
+			}
+		}
+	}()
+}
+
+func (p *CommentPane) stopAutoRefresh() {
+	if p.stopRefresh != nil {
+		close(p.stopRefresh)
+		p.stopRefresh = nil
 	}
 }

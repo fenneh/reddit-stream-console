@@ -70,10 +70,9 @@ type TviewApp struct {
 	theme         theme.Theme
 	startupNotice string // shown briefly in the status bar at launch
 
-	filterActive   bool
-	commentFilter  string
-	refreshEnabled bool
-	stopRefresh    chan struct{}
+	filterActive  bool
+	commentFilter string
+	stopRefresh   chan struct{}
 
 	latestVersion string // Latest version from GitHub, empty if current or unknown
 
@@ -479,14 +478,7 @@ func (ta *TviewApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 					pane.showingThreads = true
 					pane.thread = nil
 					pane.comments = nil
-					// Stop refresh for this pane
-					if pane.refreshEnabled {
-						pane.refreshEnabled = false
-						select {
-						case pane.stopRefresh <- struct{}{}:
-						default:
-						}
-					}
+					pane.stopAutoRefresh()
 					ta.rebuildSplitLayout()
 					return nil
 				case tcell.KeyRune:

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -246,20 +245,11 @@ func (ta *TviewApp) closeSplitMode() {
 		return
 	}
 
-	// Stop refresh on both panes if running
-	if ta.primaryPane != nil && ta.primaryPane.refreshEnabled {
-		ta.primaryPane.refreshEnabled = false
-		select {
-		case ta.primaryPane.stopRefresh <- struct{}{}:
-		default:
-		}
+	if ta.primaryPane != nil {
+		ta.primaryPane.stopAutoRefresh()
 	}
-	if ta.secondaryPane != nil && ta.secondaryPane.refreshEnabled {
-		ta.secondaryPane.refreshEnabled = false
-		select {
-		case ta.secondaryPane.stopRefresh <- struct{}{}:
-		default:
-		}
+	if ta.secondaryPane != nil {
+		ta.secondaryPane.stopAutoRefresh()
 	}
 
 	// Keep primary pane state as current state
@@ -423,34 +413,9 @@ func (ta *TviewApp) startAutoRefreshForPane(pane *CommentPane) {
 	if pane == nil || pane.thread == nil {
 		return
 	}
-
-	// Stop existing refresh
-	if pane.refreshEnabled {
-		pane.refreshEnabled = false
-		select {
-		case pane.stopRefresh <- struct{}{}:
-		default:
-		}
-	}
-
-	pane.refreshEnabled = true
-	pane.stopRefresh = make(chan struct{})
-
-	go func() {
-		ticker := time.NewTicker(10 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				if pane.refreshEnabled && pane.thread != nil {
-					ta.loadCommentsForPane(pane)
-				}
-			case <-pane.stopRefresh:
-				return
-			}
-		}
-	}()
+	pane.startAutoRefresh(func() {
+		ta.loadCommentsForPane(pane)
+	})
 }
 
 func (ta *TviewApp) loadCommentsForPane(pane *CommentPane) {

@@ -1,57 +1,42 @@
 package app
 
-import (
-	"testing"
-	"time"
-)
+import "testing"
 
-// — stopAutoRefresh —
+// — refresh lifecycle —
 
-func TestStopAutoRefreshClearsEnabledFlag(t *testing.T) {
-	ta := &TviewApp{refreshEnabled: true, stopRefresh: make(chan struct{})}
+func TestStopAutoRefreshClosesChannel(t *testing.T) {
+	ch := make(chan struct{})
+	ta := &TviewApp{stopRefresh: ch}
+
 	ta.stopAutoRefresh()
-	if ta.refreshEnabled {
-		t.Error("refreshEnabled not cleared")
-	}
-}
-
-func TestStopAutoRefreshDoesNotBlockWithoutListener(t *testing.T) {
-	ta := &TviewApp{refreshEnabled: true, stopRefresh: make(chan struct{})}
-
-	done := make(chan struct{})
-	go func() {
-		ta.stopAutoRefresh()
-		close(done)
-	}()
 
 	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("stopAutoRefresh blocked with no listener on stopRefresh")
+	case <-ch:
+	default:
+		t.Fatal("stopAutoRefresh did not close the refresh channel")
+	}
+	if ta.stopRefresh != nil {
+		t.Error("stopRefresh not cleared")
 	}
 }
 
-func TestStopAutoRefreshSignalsListener(t *testing.T) {
-	ta := &TviewApp{refreshEnabled: true, stopRefresh: make(chan struct{})}
+func TestStopAutoRefreshIsIdempotent(t *testing.T) {
+	ta := &TviewApp{stopRefresh: make(chan struct{})}
+	ta.stopAutoRefresh()
+	ta.stopAutoRefresh()
+}
 
-	received := make(chan struct{})
-	go func() {
-		<-ta.stopRefresh
-		close(received)
-	}()
+func TestStartAutoRefreshCancelsPreviousLoop(t *testing.T) {
+	ta := &TviewApp{}
+	ta.startAutoRefresh()
+	first := ta.stopRefresh
 
-	// stopAutoRefresh's send is a non-blocking select, so it can race the
-	// listener goroutine above onto its receive; retry until it lands.
-	deadline := time.After(time.Second)
-	for {
-		select {
-		case <-received:
-			return
-		case <-deadline:
-			t.Fatal("listener never received stop signal")
-		default:
-			ta.stopAutoRefresh()
-			time.Sleep(time.Millisecond)
-		}
+	ta.startAutoRefresh()
+
+	select {
+	case <-first:
+	default:
+		t.Fatal("starting a new refresh loop left the previous channel open")
 	}
+	ta.stopAutoRefresh()
 }

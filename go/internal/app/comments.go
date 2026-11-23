@@ -49,8 +49,8 @@ func (ta *TviewApp) refreshComments() {
 
 func (ta *TviewApp) startAutoRefresh() {
 	ta.stopAutoRefresh()
-	ta.refreshEnabled = true
-	ta.stopRefresh = make(chan struct{})
+	stop := make(chan struct{})
+	ta.stopRefresh = stop
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
@@ -59,23 +59,23 @@ func (ta *TviewApp) startAutoRefresh() {
 		for {
 			select {
 			case <-ticker.C:
-				if ta.refreshEnabled {
-					ta.app.QueueUpdateDraw(func() {
-						ta.loadComments(false)
-					})
-				}
-			case <-ta.stopRefresh:
+				ta.app.QueueUpdateDraw(func() {
+					ta.loadComments(false)
+				})
+			case <-stop:
 				return
 			}
 		}
 	}()
 }
 
+// stopAutoRefresh closes the channel rather than sending on it: the ticker
+// goroutine may be mid-tick, and a non-blocking send would be dropped,
+// leaving the goroutine running on a channel nobody will ever signal again.
 func (ta *TviewApp) stopAutoRefresh() {
-	ta.refreshEnabled = false
-	select {
-	case ta.stopRefresh <- struct{}{}:
-	default:
+	if ta.stopRefresh != nil {
+		close(ta.stopRefresh)
+		ta.stopRefresh = nil
 	}
 }
 
